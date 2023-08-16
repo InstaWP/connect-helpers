@@ -3,7 +3,7 @@
         'name' => 'instawp/cli-core',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '0c49861f6c4f0f3d06080fe3ba5320361e0782d7',
+        'reference' => 'bb720d90e42dc7c2caaf8b0236099ae26c16fc65',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'instawp/cli-core' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '0c49861f6c4f0f3d06080fe3ba5320361e0782d7',
+            'reference' => 'bb720d90e42dc7c2caaf8b0236099ae26c16fc65',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

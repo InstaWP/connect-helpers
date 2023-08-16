@@ -6,6 +6,10 @@ namespace Composer\Autoload;
 
 class ComposerStaticInit129f2c3248d416d992d406eb81702bfc
 {
+    public static $files = array (
+        'ac949ce40a981819ba132473518a9a31' => __DIR__ . '/..' . '/wp-cli/wp-config-transformer/src/WPConfigTransformer.php',
+    );
+
     public static $prefixLengthsPsr4 = array (
         'I' => 
         array (

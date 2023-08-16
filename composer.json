@@ -24,6 +24,9 @@
     },
     "scripts": {
         "build": [
+			"composer dump-autoload"
+		],
+        "build-nd": [
 			"composer dump-autoload --no-dev"
 		]
 	},
