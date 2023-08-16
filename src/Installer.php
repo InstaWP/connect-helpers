@@ -1,7 +1,7 @@
 <?php
 declare( strict_types=1 );
 
-namespace InstaWP\CLI\Core;
+namespace InstaWP\Connect\Helpers;
 
 class Installer {
 

@@ -7,9 +7,9 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
-    'InstaWP\\CLI\\Core\\Cache' => $baseDir . '/src/Cache.php',
-    'InstaWP\\CLI\\Core\\DebugLog' => $baseDir . '/src/DebugLog.php',
-    'InstaWP\\CLI\\Core\\Installer' => $baseDir . '/src/Installer.php',
-    'InstaWP\\CLI\\Core\\Inventory' => $baseDir . '/src/Inventory.php',
-    'InstaWP\\CLI\\Core\\WPConfig' => $baseDir . '/src/WPConfig.php',
+    'InstaWP\\Connect\\Helpers\\Cache' => $baseDir . '/src/Cache.php',
+    'InstaWP\\Connect\\Helpers\\DebugLog' => $baseDir . '/src/DebugLog.php',
+    'InstaWP\\Connect\\Helpers\\Installer' => $baseDir . '/src/Installer.php',
+    'InstaWP\\Connect\\Helpers\\Inventory' => $baseDir . '/src/Inventory.php',
+    'InstaWP\\Connect\\Helpers\\WPConfig' => $baseDir . '/src/WPConfig.php',
 );

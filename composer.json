@@ -1,5 +1,5 @@
 {
-    "name": "instawp/cli-core",
+    "name": "instawp/connect-helpers",
     "description": "CLI Package for InstaWP Remote Features",
     "type": "library",
     "license": "GPL-2.0-or-later",
@@ -19,7 +19,7 @@
     },
     "autoload": {
         "psr-4": {
-            "InstaWP\\CLI\\Core\\": "src/"
+            "InstaWP\\Connect\\Helpers\\": "src/"
         }
     },
     "scripts": {

@@ -1,17 +1,17 @@
 <?php
 /**
- * InstaWP CLI Core
+ * InstaWP Connect Helpers
  *
- * @package      InstaWP\CLI\Core
+ * @package      InstaWP\Connect\Helpers
  * @copyright    Copyright (C) 2023, InstaWP
  * @link         http://instawp.com
  * @since        1.0.0
  *
  * @wordpress-plugin
- * Plugin Name:       InstaWP CLI Core
+ * Plugin Name:       InstaWP Connect Helpers
  * Version:           1.0.0
  * Plugin URI:        https://instawp.com
- * Description:       CLI Package for InstaWP Remote Features.
+ * Description:       Helpers Package for InstaWP Remote Features.
  * Author:            InstaWP
  * Author URI:        https://instawp.com
  * License:           GPL-2.0+

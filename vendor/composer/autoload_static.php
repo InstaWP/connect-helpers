@@ -13,12 +13,12 @@ class ComposerStaticInit129f2c3248d416d992d406eb81702bfc
     public static $prefixLengthsPsr4 = array (
         'I' => 
         array (
-            'InstaWP\\CLI\\Core\\' => 17,
+            'InstaWP\\Connect\\Helpers\\' => 24,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'InstaWP\\CLI\\Core\\' => 
+        'InstaWP\\Connect\\Helpers\\' => 
         array (
             0 => __DIR__ . '/../..' . '/src',
         ),
@@ -26,11 +26,11 @@ class ComposerStaticInit129f2c3248d416d992d406eb81702bfc
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
-        'InstaWP\\CLI\\Core\\Cache' => __DIR__ . '/../..' . '/src/Cache.php',
-        'InstaWP\\CLI\\Core\\DebugLog' => __DIR__ . '/../..' . '/src/DebugLog.php',
-        'InstaWP\\CLI\\Core\\Installer' => __DIR__ . '/../..' . '/src/Installer.php',
-        'InstaWP\\CLI\\Core\\Inventory' => __DIR__ . '/../..' . '/src/Inventory.php',
-        'InstaWP\\CLI\\Core\\WPConfig' => __DIR__ . '/../..' . '/src/WPConfig.php',
+        'InstaWP\\Connect\\Helpers\\Cache' => __DIR__ . '/../..' . '/src/Cache.php',
+        'InstaWP\\Connect\\Helpers\\DebugLog' => __DIR__ . '/../..' . '/src/DebugLog.php',
+        'InstaWP\\Connect\\Helpers\\Installer' => __DIR__ . '/../..' . '/src/Installer.php',
+        'InstaWP\\Connect\\Helpers\\Inventory' => __DIR__ . '/../..' . '/src/Inventory.php',
+        'InstaWP\\Connect\\Helpers\\WPConfig' => __DIR__ . '/../..' . '/src/WPConfig.php',
     );
 
     public static function getInitializer(ClassLoader $loader)
