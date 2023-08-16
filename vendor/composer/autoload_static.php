@@ -7,6 +7,7 @@ namespace Composer\Autoload;
 class ComposerStaticInit129f2c3248d416d992d406eb81702bfc
 {
     public static $files = array (
+        'ac949ce40a981819ba132473518a9a31' => __DIR__ . '/..' . '/wp-cli/wp-config-transformer/src/WPConfigTransformer.php',
         '4245c3c1356d5a9b537d29948487281a' => __DIR__ . '/..' . '/woocommerce/action-scheduler/action-scheduler.php',
     );
 
