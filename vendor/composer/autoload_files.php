@@ -6,5 +6,5 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
-    'ac949ce40a981819ba132473518a9a31' => $vendorDir . '/wp-cli/wp-config-transformer/src/WPConfigTransformer.php',
+    '4245c3c1356d5a9b537d29948487281a' => $vendorDir . '/woocommerce/action-scheduler/action-scheduler.php',
 );
