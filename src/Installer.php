@@ -25,7 +25,7 @@ class Installer {
     }
 
     public function start(): array {
-		if ( count( $this->args ) >= 5 ) {
+		if ( count( $this->args ) > 5 ) {
 			return [
 				'success' => false,
 				'message' => esc_html( 'Maximum 5 installations are allowed!' ),
