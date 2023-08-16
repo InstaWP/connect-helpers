@@ -20,10 +20,7 @@
     "autoload": {
         "psr-4": {
             "InstaWP\\CLI\\Core\\": "src/"
-        },
-        "files": [ 
-            "vendor/woocommerce/action-scheduler/action-scheduler.php"
-        ]
+        }
     },
     "scripts": {
         "build": [
