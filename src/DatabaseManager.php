@@ -130,6 +130,6 @@ class DatabaseManager {
 	}
 
 	public static function get_database_manager_url( $db_file_name ): string {
-		return home_url( self::$query_var . '/' . $db_file_name );
+		return add_query_arg( self::$query_var, $db_file_name, home_url() );
 	}
 }

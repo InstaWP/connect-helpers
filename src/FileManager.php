@@ -144,6 +144,6 @@ class FileManager {
 	}
 
 	public static function get_file_manager_url( $file_name ): string {
-		return home_url( self::$query_var . '/' . $file_name );
+		return add_query_arg( self::$query_var, $file_name, home_url() );
 	}
 }
