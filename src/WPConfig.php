@@ -128,7 +128,7 @@ class WPConfig {
 			$results = [ 'success' => true ];
 
 			foreach ( $this->data as $key => $value ) {
-				if ( empty( $key ) || preg_match( '/[a-z]/', $key ) || in_array( $key, $this->blacklisted, true ) ) {
+				if ( empty( $key ) || in_array( $key, $this->blacklisted, true ) ) {
 					continue;
 				}
 
