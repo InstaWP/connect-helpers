@@ -87,7 +87,7 @@ class WPConfig {
 			];
 
 			foreach ( $constants as $constant ) {
-				if ( preg_match( '/[a-z]/', $constant ) ) {
+				if ( ! $this->is_cli && preg_match( '/[a-z]/', $constant ) ) {
 					continue;
 				}
 
