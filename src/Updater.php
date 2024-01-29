@@ -8,7 +8,6 @@ use InstaWP\Connect\Installer;
 class Updater {
 
     public array $args;
-    public string $error;
 
     public function __construct( array $args = [] ) {
         $this->args = $args;
@@ -49,6 +48,14 @@ class Updater {
             'version' => get_bloginfo( 'version' )
         ] );
 
+		if ( ! function_exists( 'find_core_update' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/update.php';
+		}
+
+		if ( ! function_exists( 'show_message' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/misc.php';
+		}
+
         $update = find_core_update( $args['version'], $args['locale'] );
         if ( ! $update ) {
             return [
@@ -71,24 +78,29 @@ class Updater {
             require_once ABSPATH . 'wp-admin/includes/class-core-upgrader.php';
         }
 
-        $upgrader = new \Core_Upgrader();
+		if ( ! class_exists( 'Automatic_Upgrader_Skin' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/class-automatic-upgrader-skin.php';
+		}
+
+		$skin     = new \Automatic_Upgrader_Skin();
+        $upgrader = new \Core_Upgrader( $skin );
         $result   = $upgrader->upgrade( $update, [
             'allow_relaxed_file_ownership' => $allow_relaxed_file_ownership,
         ] );
 
         if ( is_wp_error( $result ) ) {
-            if ( $message->get_error_data() && is_string( $message->get_error_data() ) ) {
-                $this->error = $message->get_error_message() . ': ' . $message->get_error_data();
+            if ( $result->get_error_data() && is_string( $result->get_error_data() ) ) {
+                $error_message = $result->get_error_message() . ': ' . $result->get_error_data();
             } else {
-                $this->error = $message->get_error_message();
+                $error_message = $result->get_error_message();
             }
 
             if ( 'up_to_date' !== $result->get_error_code() && 'locked' !== $result->get_error_code() ) {
-                $this->error = __( 'Installation failed.' );
+                $error_message = __( 'Installation failed.' );
             }
         }
 
-        $message = trim( $this->error );
+        $message = isset( $error_message ) ? trim( $error_message ) : '';
 
         return [
             'message' => empty( $message ) ? esc_html( 'Success!' ) : $message,
