@@ -19,9 +19,11 @@ class Installer {
     public bool $activate;
     public string $url;
     public string $error;
+    public bool $overwrite;
 
-    public function __construct( array $args = [] ) {
-        $this->args = $args;
+    public function __construct( array $args = [], bool $overwrite = false ) {
+        $this->args      = $args;
+        $this->overwrite = $overwrite;
     }
 
     public function start(): array {
@@ -67,12 +69,14 @@ class Installer {
                 require_once ABSPATH . 'wp-admin/includes/class-theme-upgrader.php';
             }
 
-            if ( ! class_exists( 'WP_Ajax_Upgrader_Skin' ) ) {
-                require_once ABSPATH . 'wp-admin/includes/class-wp-ajax-upgrader-skin.php';
+            if ( ! class_exists( 'WP_Upgrader_Skin' ) ) {
+                require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skin.php';
             }
 
+            $skin = new \WP_Upgrader_Skin();
+
             if ( 'plugin' === $this->type ) {
-                $upgrader = new \Plugin_Upgrader( new \WP_Ajax_Upgrader_Skin() );
+                $upgrader = new \Plugin_Upgrader( $skin );
 
                 if ( 'wp.org' === $this->source ) {
                     if ( ! function_exists( 'plugins_api' ) ) {
@@ -113,7 +117,7 @@ class Installer {
                     }
                 }
             } elseif ( 'theme' === $this->type ) {
-                $upgrader = new \Theme_Upgrader( new \WP_Ajax_Upgrader_Skin() );
+                $upgrader = new \Theme_Upgrader( $skin );
 
                 if ( 'wp.org' === $this->source ) {
                     if ( ! function_exists( 'themes_api' ) ) {
@@ -140,7 +144,7 @@ class Installer {
 
             if ( empty( $this->error ) && $this->is_link_valid() ) {
                 $result = $upgrader->install( $this->url, [
-                    'overwrite_package' => true,
+                    'overwrite_package' => $this->overwrite,
                 ] );
 
                 if ( ! $result || is_wp_error( $result ) ) {
