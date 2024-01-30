@@ -3,7 +3,7 @@ declare( strict_types=1 );
 
 namespace InstaWP\Connect\Helpers;
 
-use InstaWP\Connect\Installer;
+use InstaWP\Connect\Helpers\Installer;
 
 class Updater {
 
@@ -24,7 +24,7 @@ class Updater {
         $results = [];
 
         foreach( $this->args as $index => $args ) {
-            if ( in_array( $args['type'], [ 'plugin', 'theme'] ) ) {
+            if ( in_array( $args['type'], [ 'plugin', 'theme' ] ) ) {
                 $installer = new Installer( wp_parse_args( $args, [
                     'slug'     => '',
                     'source'   => 'wp.org',
@@ -50,6 +50,10 @@ class Updater {
 
 		if ( ! function_exists( 'find_core_update' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/update.php';
+		}
+
+		if ( ! function_exists( 'request_filesystem_credentials' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
 
 		if ( ! function_exists( 'show_message' ) ) {
