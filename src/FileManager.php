@@ -76,7 +76,7 @@ class FileManager {
 				'INSTAWP_FILE_MANAGER_USERNAME'   => $username,
 				'INSTAWP_FILE_MANAGER_PASSWORD'   => $password,
 				'INSTAWP_FILE_MANAGER_SELF_URL'   => $file_manager_url,
-				'INSTAWP_FILE_MANAGER_SESSION_ID' => 'instawp_file_manager',
+				'INSTAWP_FILE_MANAGER_SESSION_ID' => Helper::get_random_string( 16 ),
 			];
 
 			$wp_config = new WPConfig( $constants );
