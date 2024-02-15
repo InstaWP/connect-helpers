@@ -29,6 +29,15 @@ class FileManager {
 			'tinyfilemanager.github.io',
 			'FM_SELF_URL',
 			'FM_SESSION_ID',
+			'p=',
+			'"p"',
+			"'p'",
+			'view=',
+			'"view"',
+			"'view'",
+			'edit=',
+			'"edit"',
+			"'edit'",
 			"'translation.json'",
 			'</style>',
 		];
@@ -38,6 +47,15 @@ class FileManager {
 			'instawp.com',
 			'INSTAWP_FILE_MANAGER_SELF_URL',
 			'INSTAWP_FILE_MANAGER_SESSION_ID',
+			'iwp-path=',
+			'"iwp-path"',
+			"'iwp-path'",
+			'iwp-view=',
+			'"iwp-view"',
+			"'iwp-view'",
+			'iwp-edit=',
+			'"iwp-edit"',
+			"'iwp-edit'",
 			"__DIR__ . '/translation.json'",
 			'<?php if ( file_exists( __DIR__ . "/custom.css" ) ) { echo file_get_contents( __DIR__ . "/custom.css" ); } ?></style>',
 		];
@@ -76,7 +94,7 @@ class FileManager {
 				'INSTAWP_FILE_MANAGER_USERNAME'   => $username,
 				'INSTAWP_FILE_MANAGER_PASSWORD'   => $password,
 				'INSTAWP_FILE_MANAGER_SELF_URL'   => $file_manager_url,
-				'INSTAWP_FILE_MANAGER_SESSION_ID' => Helper::get_random_string( 16 ),
+				'INSTAWP_FILE_MANAGER_SESSION_ID' => 'instawp_file_manager',
 			];
 
 			$wp_config = new WPConfig( $constants );
