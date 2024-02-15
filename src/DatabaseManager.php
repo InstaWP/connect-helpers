@@ -86,7 +86,7 @@ class DatabaseManager {
     }
 
 	public function clean( $file_name = null ): void {
-		$file_name = defined( 'INSTAWP_DATABASE_MANAGER_FILE_NAME' ) ? INSTAWP_DATABASE_MANAGER_FILE_NAME : '';
+		$file_name = defined( 'INSTAWP_DATABASE_MANAGER_FILE_NAME' ) ? INSTAWP_DATABASE_MANAGER_FILE_NAME : $file_name;
 
 		if ( ! empty( $file_name ) ) {
 			$file_path = self::get_file_path( $file_name );
