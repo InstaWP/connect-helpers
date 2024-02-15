@@ -37,8 +37,8 @@ class DatabaseManager {
 		$file = file_get_contents( $url );
 		$file = preg_replace( $search, $replace, $file );
 
-		$file_path            = self::get_file_path( $db_file_name );
-		$database_manager_url = self::get_database_manager_url( $db_file_name );
+		$file_path            = self::get_file_path( $file_name );
+		$database_manager_url = self::get_database_manager_url( $file_name );
 
 		$results = [
 			'login_url' => add_query_arg( [
@@ -85,7 +85,7 @@ class DatabaseManager {
         return $results;
     }
 
-	public function clean( $db_file_name = null ): void {
+	public function clean( $file_name = null ): void {
 		$file_name = defined( 'INSTAWP_DATABASE_MANAGER_FILE_NAME' ) ? INSTAWP_DATABASE_MANAGER_FILE_NAME : '';
 
 		if ( ! empty( $file_name ) ) {
