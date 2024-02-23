@@ -174,7 +174,7 @@ class Installer {
         $message = isset( $error_message ) ? trim( $error_message ) : '';
 
         if ( ! function_exists( 'wp_clean_update_cache' ) || ! function_exists( 'wp_update_themes' ) || ! function_exists( 'wp_update_plugins' ) ) {
-            require_once ABSPATH . 'wp-includes\update.php';
+            require_once ABSPATH . 'wp-includes/update.php';
         }
 
         wp_clean_update_cache();
