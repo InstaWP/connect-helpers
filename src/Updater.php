@@ -22,28 +22,14 @@ class Updater {
 		}
 
 		$results = [];
-
-		$core_updates = array_filter( $this->args, function( $value ) {
-			return $value['type'] === 'core';
-		} );
-
-		if ( ! empty( $core_updates ) ) {
-			$results[] = $this->core_update( reset( $core_updates ) );
-		}
-
-		$plugin_theme_updates = array_filter( $this->args, function( $value ) {
-			return $value['type'] !== 'core';
-		} );
-
-		if ( ! empty( $plugin_theme_updates ) ) {
-			$installer = new Installer( $plugin_theme_updates, true );
-			$results   = array_merge( $results, array_values( $installer->start() ) );
+		foreach ( $this->args as $update ) {
+			$results[] = 'core' === $update['type'] ? $this->core_updater( $update ) : $this->updater( $update['type'], $update['slug'] );
 		}
 
 		return $results;
 	}
 
-	private function core_update( array $args = [] ): array {
+	private function core_updater( array $args = [] ): array {
 		$args = wp_parse_args( $args, [
 			'locale'  => get_locale(),
 			'version' => get_bloginfo( 'version' )
@@ -104,6 +90,53 @@ class Updater {
 				$error_message = __( 'Installation failed.' );
 			}
 		}
+
+		$message = isset( $error_message ) ? trim( $error_message ) : '';
+
+		return [
+			'message' => empty( $message ) ? esc_html( 'Success!' ) : $message,
+			'status'  => empty( $message ),
+		];
+	}
+
+	private function updater( string $type, string $item ): array {
+		if ( ! class_exists( 'WP_Automatic_Updater' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/class-wp-automatic-upgrader.php';
+		}
+
+		$upgrader = new \WP_Automatic_Updater();
+
+		add_filter( 'automatic_updater_disabled', '__return_false', 99 );
+		add_filter( "auto_update_{$type}", '__return_true', 99 );
+
+		if ( 'plugin' === $type ) {
+			wp_update_plugins();
+
+			$plugin_updates = get_site_transient( 'update_plugins' );
+			if ( $plugin_updates && ! empty( $plugin_updates->response ) && ! empty( $plugin_updates->response[ $item ] ) ) {
+				$result = $upgrader->update( 'plugin', $plugin_updates->response[ $item ] );
+				wp_clean_plugins_cache();
+			}
+		} elseif ( 'theme' === $type ) {
+			wp_update_themes();
+
+			$theme_updates = get_site_transient( 'update_themes' );
+			if ( $theme_updates && ! empty( $theme_updates->response ) && ! empty( $theme_updates->response[ $item ] ) ) {
+				$result = $upgrader->update( 'theme', ( object ) $theme_updates->response[ $item ] );
+				wp_clean_themes_cache();
+			}
+		}
+
+		if ( isset( $result ) && is_wp_error( $result ) ) {
+			if ( $result->get_error_data() && is_string( $result->get_error_data() ) ) {
+				$error_message = $result->get_error_message() . ': ' . $result->get_error_data();
+			} else {
+				$error_message = $result->get_error_message();
+			}
+		}
+
+		remove_filter( 'automatic_updater_disabled', '__return_false', 99 );
+		remove_filter( "auto_update_{$type}", '__return_true', 99 );
 
 		$message = isset( $error_message ) ? trim( $error_message ) : '';
 
