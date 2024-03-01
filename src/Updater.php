@@ -21,6 +21,14 @@ class Updater {
 
 		$results = [];
 		foreach ( $this->args as $update ) {
+			if ( empty( $update['type'] ) || count( $update ) != 2 ) {
+				$results[] = [
+					'success' => false,
+					'message' => esc_html( 'Required parameters are missing!' ),
+				];
+				continue;
+			}
+
 			$results[] = 'core' === $update['type'] ? $this->core_updater( $update ) : $this->updater( $update['type'], $update['slug'] );
 		}
 
@@ -130,6 +138,7 @@ class Updater {
 		add_filter( "auto_update_{$type}", '__return_true', 201 );
 		
 		$upgrader = new \WP_Automatic_Updater();
+		$result   = false;
 
 		if ( 'plugin' === $type ) {
 			wp_update_plugins();
@@ -158,22 +167,27 @@ class Updater {
 			}
 		}
 
-		if ( isset( $result ) && is_wp_error( $result ) ) {
+		remove_filter( 'automatic_updater_disabled', '__return_false', 201 );
+		remove_filter( "auto_update_{$type}", '__return_true', 201 );
+
+		if ( is_wp_error( $result ) ) {
 			if ( $result->get_error_data() && is_string( $result->get_error_data() ) ) {
 				$error_message = $result->get_error_message() . ': ' . $result->get_error_data();
 			} else {
 				$error_message = $result->get_error_message();
 			}
+
+			$message = isset( $error_message ) ? trim( $error_message ) : '';
+
+			return [
+				'message' => empty( $message ) ? esc_html( 'Success!' ) : $message,
+				'status'  => empty( $message ),
+			];
 		}
 
-		remove_filter( 'automatic_updater_disabled', '__return_false', 201 );
-		remove_filter( "auto_update_{$type}", '__return_true', 201 );
-
-		$message = isset( $error_message ) ? trim( $error_message ) : '';
-
 		return [
-			'message' => empty( $message ) ? esc_html( 'Success!' ) : $message,
-			'status'  => empty( $message ),
+			'message' => $result ? esc_html( 'Success!' ) : esc_html( 'Update Failed!' ),
+			'status'  => $result,
 		];
 	}
 }
