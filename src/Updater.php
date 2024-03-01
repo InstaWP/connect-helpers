@@ -152,7 +152,8 @@ class Updater {
 
 				$result = $upgrader->update( 'plugin', $plugin_updates->response[ $item ] );
 				wp_clean_plugins_cache();
-
+				wp_update_plugins();
+				
 				if ( $is_plugin_active ) {
 					activate_plugin( $item, '', false, true );
 				}
@@ -164,6 +165,7 @@ class Updater {
 			if ( $theme_updates && ! empty( $theme_updates->response ) && ! empty( $theme_updates->response[ $item ] ) ) {
 				$result = $upgrader->update( 'theme', ( object ) $theme_updates->response[ $item ] );
 				wp_clean_themes_cache();
+				wp_update_themes();
 			}
 		}
 
