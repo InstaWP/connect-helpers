@@ -14,7 +14,7 @@ class DatabaseManager {
 
 		$file_name = Helper::get_random_string( 20 );
 		$token     = md5( $file_name );
-		$url       = 'https://github.com/adminerevo/adminerevo/releases/download/v4.8.3/adminer-4.8.3.php';
+		$url       = 'https://github.com/adminerevo/adminerevo/releases/download/v4.8.4/adminer-4.8.4.php';
 
 		$search  = [
 			'/\bjs_escape\b/',
