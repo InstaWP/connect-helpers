@@ -95,7 +95,7 @@ class Helper {
 	}
 
 
-	public static function get_random_string( $length ) {
+	public static function get_random_string( $length = 6 ) {
 		try {
 			$length        = ( int ) round( ceil( absint( $length ) / 2 ) );
 			$bytes         = function_exists( 'random_bytes' ) ? random_bytes( $length ) : openssl_random_pseudo_bytes( $length );
