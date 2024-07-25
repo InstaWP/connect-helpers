@@ -53,7 +53,9 @@ class WPConfig extends \WPConfigTransformer {
             throw new \Exception( "Config type constant does not exist." );
         }
 
-        $results = [];
+        $results = [
+            'wp-config' => [],
+        ];
 
         foreach ( $this->wp_configs['constant'] as $constant => $data ) {
             if ( ! $this->is_cli && ( preg_match( '/[a-z]/', $constant ) || in_array( $constant, $this->blacklisted, true ) ) ) {
@@ -67,7 +69,7 @@ class WPConfig extends \WPConfigTransformer {
                 $value = intval( $value );
             }
 
-            $results[ $constant ] = $value;
+            $results['wp-config'][ $constant ] = $value;
         }
 
         return $results;
