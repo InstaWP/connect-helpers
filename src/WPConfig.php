@@ -62,6 +62,10 @@ class WPConfig extends \WPConfigTransformer {
                 continue;
             }
 
+            if ( ! empty( $this->config_data ) && ! in_array( $constant, $this->config_data, true ) ) {
+                continue;
+            }
+
             $value = trim( $data['value'], "'" );
             if ( filter_var( $value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE ) !== null ) {
                 $value = filter_var( $value, FILTER_VALIDATE_BOOLEAN );
