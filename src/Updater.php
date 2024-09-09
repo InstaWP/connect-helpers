@@ -187,7 +187,7 @@ class Updater {
 
 				if ( is_wp_error( $self_update_res ) ) {
 					$result = $self_update_res;
-				} elseif ( $result ) {
+				} else {
 					$result = true;
 				}
 			} else {
