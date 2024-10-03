@@ -4,7 +4,7 @@ namespace InstaWP\Connect\Helpers;
 
 class Helper {
 
-	public static function instawp_generate_api_key( $api_key ) {
+	public static function instawp_generate_api_key( $api_key, $jwt = '' ) {
 		if ( empty( $api_key ) ) {
 			error_log( 'instawp_generate_api_key empty api_key parameter' );
 
@@ -19,6 +19,7 @@ class Helper {
 			if ( is_array( $api_options ) && is_array( $api_response['data'] ) ) {
 				Option::update_option( 'instawp_api_options', array_merge( $api_options, array(
 					'api_key'  => $api_key,
+                    'jwt'      => $jwt,
 					'response' => $api_response['data'],
 				) ) );
 			}
