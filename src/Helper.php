@@ -11,7 +11,7 @@ class Helper {
 			return false;
 		}
 
-		$api_response = Curl::do_curl( 'check-key', array(), array(), 'GET', 'v1', $api_key );
+        $api_response = Curl::do_curl( 'check-key?jwt=' . $jwt, array(), array(), 'GET', 'v1', $api_key );
 
 		if ( ! empty( $api_response['data']['status'] ) ) {
 			$api_options = Option::get_option( 'instawp_api_options', array() );
