@@ -8,10 +8,6 @@ namespace InstaWP\Connect\Helpers;
  * @package InstaWP\Connect\Helpers
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly.
-}
-
 if ( ! class_exists( 'AutoUpdatePluginFromGitHub' ) ) {
 	/**
 	 * Class AutoUpdatePluginFromGitHub
