@@ -66,8 +66,11 @@ if ( ! class_exists( 'AutoUpdatePluginFromGitHub' ) ) {
 			$this->update_path     = esc_url( $update_path );
 			$this->plugin_slug     = $plugin_slug;
 
+			// Explode the plugin slug.
 			$plugin_slug            = explode( '/', $plugin_slug );
+			// Set the plugin slug.
 			$this->slug             = str_replace( '.php', '', $plugin_slug[1] );
+			// Set the plugin directory.
 			$this->plugin_directory = $plugin_slug[0];
 
 			// Hooks for the plugin update.
