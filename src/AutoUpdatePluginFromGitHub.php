@@ -45,6 +45,13 @@ class AutoUpdatePluginFromGitHub {
 	private $slug;
 
 	/**
+	 * Plugin install result.
+	 *
+	 * @var array
+	 */
+	private $install_result = array();
+
+	/**
 	 * Last update check time.
 	 *
 	 * @var int
@@ -79,6 +86,29 @@ class AutoUpdatePluginFromGitHub {
 		add_action( 'admin_init', array( $this, 'force_update_check' ) );
 		// Hook for the after install.
 		add_filter( 'upgrader_post_install', array( $this, 'after_install' ), 10, 3 );
+
+		// Hook for the install package result.
+		add_filter( 'upgrader_install_package_result', array( $this, 'install_package_result' ), 10, 2 );
+	}
+
+	/**
+	 * Hook for the install package result. Correct plugin install result which stored during after install hook
+	 * to help getting correct details further by WP_Upgrader
+	 *
+	 * @param array $result The result.
+	 * @param array $hook_extra The hook extra.
+	 *
+	 * @return array The result.
+	 */
+	public function install_package_result( $result, $hook_extra ) {
+		if ( ! empty( $this->install_result['destination_name'] ) && ! empty( $result['destination_name'] ) && ( $result['destination_name'] === $this->plugin_directory . '-main' || $result['destination_name'] === $this->plugin_directory . '-master' ) ) {
+			foreach ( $this->install_result as $rkey => $rvalue ) {
+				if ( ! empty( $result[ $rkey ] ) ) {
+					$result[ $rkey ] = $rvalue;
+				}
+			}
+		}
+		return $result;
 	}
 
 	/**
@@ -104,8 +134,8 @@ class AutoUpdatePluginFromGitHub {
 	 */
 	public function after_install( $response, $hook_extra, $result ) {
 		// Check if the extracted folder ends with -main, or -master.
-		if ( empty( $result['destination_name'] ) || empty( $result['destination'] ) || ( $result['destination_name'] !== $this->plugin_directory . '-main' && $result['destination_name'] !== $this->plugin_directory . '-master' ) || ! defined( 'WP_PLUGIN_DIR' ) || ! file_exists( ABSPATH . '/wp-admin/includes/file.php' ) || ! $this->is_plugin_active() ) {
-			return $result;
+		if ( empty( $result['destination_name'] ) || empty( $result['destination'] ) || $result['destination_name'] === $this->plugin_directory || ( $result['destination_name'] !== $this->plugin_directory . '-main' && $result['destination_name'] !== $this->plugin_directory . '-master' ) || ! defined( 'WP_PLUGIN_DIR' ) || ! file_exists( ABSPATH . '/wp-admin/includes/file.php' ) || ! $this->is_plugin_active() ) {
+			return $response;
 		}
 
 		try {
@@ -117,7 +147,7 @@ class AutoUpdatePluginFromGitHub {
 
 			if ( empty( $wp_filesystem ) ) {
 				error_log( 'Update plugin: file system not available' );
-				return $result;
+				return $response;
 			}
 
 			// Get the plugin folder.
@@ -130,9 +160,9 @@ class AutoUpdatePluginFromGitHub {
 
 			// Rename the extracted folder to the correct plugin folder name
 			$wp_filesystem->move( $result['destination'], $plugin_folder );
-			$result['destination_name']   = $this->plugin_directory;
-			$result['destination']        = $plugin_folder;
-			$result['remote_destination'] = $plugin_folder;
+			$this->install_result['destination_name']   = $this->plugin_directory;
+			$this->install_result['destination']        = $plugin_folder;
+			$this->install_result['remote_destination'] = $plugin_folder;
 			// Ensure the plugin is active if it was active before the update
 			if ( function_exists( 'activate_plugin' ) ) {
 				$activate_result = activate_plugin( $this->plugin_slug );
@@ -140,11 +170,12 @@ class AutoUpdatePluginFromGitHub {
 					error_log( 'Error activating plugin: ' . $activate_result->get_error_message() );
 				}
 			}
+			wp_clean_plugins_cache();
 		} catch ( \Exception $e ) {
 			error_log( 'After install exception ' . $e->getMessage() );
 		}
 
-		return $result;
+		return $response;
 	}
 
 	/**
