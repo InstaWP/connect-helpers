@@ -154,7 +154,7 @@ class AutoUpdatePluginFromGitHub {
 	 */
 	public function force_update_check() {
 		global $pagenow;
-		if ( ! empty( $pagenow ) && 'plugins.php' === $pagenow && ( function_exists( 'wp_clean_plugins_cache' ) && function_exists( 'wp_update_plugins' ) && function_exists( 'get_site_transient' ) ) ) {
+		if ( ! empty( $pagenow ) && 'plugins.php' === $pagenow && function_exists( 'wp_clean_plugins_cache' ) && function_exists( 'wp_update_plugins' ) && function_exists( 'get_site_transient' ) ) {
 
 			try {
 				$transient      = get_site_transient( 'update_plugins' );
