@@ -35,7 +35,7 @@ class Helper {
 			'php_version'    => phpversion(),
 			'plugin_version' => INSTAWP_PLUGIN_VERSION,
 			'title'          => get_bloginfo( 'name' ),
-			'favicon'        => get_site_icon_url(),
+			'icon'           => get_site_icon_url(),
 			'username'       => base64_encode( self::get_admin_username() ),
 		);
 		$connect_response = Curl::do_curl( 'connects', $connect_body, array(), 'POST', 'v1' );
