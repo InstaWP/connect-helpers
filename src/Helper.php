@@ -34,7 +34,7 @@ class Helper {
 			'wp_version'     => get_bloginfo( 'version' ),
 			'php_version'    => phpversion(),
 			'plugin_version' => INSTAWP_PLUGIN_VERSION,
-			'site_title'     => get_bloginfo( 'name' ),
+			'title'          => get_bloginfo( 'name' ),
 			'favicon'        => get_site_icon_url(),
 			'username'       => base64_encode( self::get_admin_username() ),
 		);
