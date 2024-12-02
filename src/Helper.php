@@ -38,7 +38,7 @@ class Helper {
 			'title'          => get_bloginfo( 'name' ),
 			'icon'           => get_site_icon_url(),
 			'username'       => base64_encode( self::get_admin_username() ),
-			'plan_id'        => (int) Option::get_option( 'instawp_connect_plan_id', $default_plan_id )
+			'plan_id'        => self::get_connect_plan_id(),
 		);
 		$connect_response = Curl::do_curl( 'connects', $connect_body, array(), 'POST', 'v1' );
 
@@ -271,5 +271,12 @@ class Helper {
 		$api_options['api_url'] = $api_domain;
 
 		return Option::update_option( 'instawp_api_options', $api_options );
+	}
+
+	public static function get_connect_plan_id() {
+		$default_plan_id  = defined( 'INSTAWP_CONNECT_PLAN_ID' ) ? INSTAWP_CONNECT_PLAN_ID : 1;
+		$plan_id          = Option::get_option( 'instawp_connect_plan_id', $default_plan_id );
+		
+		return ! empty( $plan_id ) ? (int) $plan_id : $default_plan_id;
 	}
 }
