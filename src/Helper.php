@@ -38,7 +38,7 @@ class Helper {
 			'title'          => get_bloginfo( 'name' ),
 			'icon'           => get_site_icon_url(),
 			'username'       => base64_encode( self::get_admin_username() ),
-			'plan_id'        => (int) get_option( 'instawp_connect_plan_id', $default_plan_id )
+			'plan_id'        => (int) Option::get_option( 'instawp_connect_plan_id', $default_plan_id )
 		);
 		$connect_response = Curl::do_curl( 'connects', $connect_body, array(), 'POST', 'v1' );
 
