@@ -29,6 +29,7 @@ class Helper {
 			return false;
 		}
 
+		$default_plan_id  = defined( 'INSTAWP_CONNECT_PLAN_ID' ) ? INSTAWP_CONNECT_PLAN_ID : 0;
 		$connect_body     = array(
 			'url'            => get_site_url(),
 			'wp_version'     => get_bloginfo( 'version' ),
@@ -37,6 +38,7 @@ class Helper {
 			'title'          => get_bloginfo( 'name' ),
 			'icon'           => get_site_icon_url(),
 			'username'       => base64_encode( self::get_admin_username() ),
+			'plan_id'        => (int) get_option( 'instawp_connect_plan_id', $default_plan_id )
 		);
 		$connect_response = Curl::do_curl( 'connects', $connect_body, array(), 'POST', 'v1' );
 
@@ -48,15 +50,7 @@ class Helper {
 				self::set_connect_id( $connect_id );
 				self::set_connect_uuid( $connect_uuid );
 
-				// Send heartbeat to InstaWP
-				if ( function_exists( 'instawp_send_heartbeat' ) ) {
-					instawp_send_heartbeat( $connect_id );
-				}
-
-				// Update staging sites
-				if ( function_exists( 'instawp_set_staging_sites_list' ) ) {
-					instawp_set_staging_sites_list();
-				}
+				do_action( 'instawp_connect_connected', $connect_id );
 			} else {
 				error_log( 'instawp_generate_api_key connect id not found in response.' );
 
