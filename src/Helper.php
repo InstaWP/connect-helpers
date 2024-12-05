@@ -29,7 +29,6 @@ class Helper {
 			return false;
 		}
 
-		$default_plan_id  = defined( 'INSTAWP_CONNECT_PLAN_ID' ) ? INSTAWP_CONNECT_PLAN_ID : 0;
 		$connect_body     = array(
 			'url'            => get_site_url(),
 			'wp_version'     => get_bloginfo( 'version' ),
