@@ -78,7 +78,7 @@ class Helper {
 
 		$response = Curl::do_curl( "connects/{$connect_id}/generate-token", array(), array(), 'GET' );
 		if ( ! empty( $response['success'] ) ) {
-			$jwt = ! empty( $response['data']['jwt'] ) ? $response['data']['jwt'] : '';
+			$jwt = ! empty( $response['data']['token'] ) ? $response['data']['token'] : '';
 			
 			if ( ! empty( $jwt ) ) {
 				self::set_jwt( $jwt );
