@@ -236,6 +236,12 @@ class Helper {
 		return self::get_args_option( 'connect_uuid', $api_options );
 	}
 
+	public static function get_connect_url() {
+		$api_options = Option::get_option( 'instawp_api_options' );
+
+		return self::get_args_option( 'url', $api_options );
+	}
+
 	public static function get_jwt() {
 		$api_options = Option::get_option( 'instawp_api_options' );
 
@@ -286,6 +292,13 @@ class Helper {
 	public static function set_connect_uuid( $connect_uuid ) {
 		$api_options                 = Option::get_option( 'instawp_api_options' );
 		$api_options['connect_uuid'] = $connect_uuid;
+
+		return Option::update_option( 'instawp_api_options', $api_options );
+	}
+
+	public static function set_connect_url( $url ) {
+		$api_options        = Option::get_option( 'instawp_api_options' );
+		$api_options['url'] = $url;
 
 		return Option::update_option( 'instawp_api_options', $api_options );
 	}
