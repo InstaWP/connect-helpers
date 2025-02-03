@@ -24,6 +24,7 @@ class Helper {
 				Option::update_option( 'instawp_api_options', array_merge( $api_options, array(
 					'api_key'  => $api_key,
 					'jwt'      => $jwt,
+					'url'      => self::wp_site_url(),
 					'response' => $api_response['data'],
 				) ) );
 			}
