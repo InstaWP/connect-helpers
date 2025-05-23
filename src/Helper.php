@@ -52,6 +52,8 @@ class Helper {
 			$connect_body = array_merge( $connect_body, $config );
 		}
 
+		$connect_response = Curl::do_curl( 'connects', $connect_body, array(), 'POST', 'v1' );
+
 		if ( ! empty( $connect_response['data']['status'] ) ) {
 			$connect_id   = ! empty( $connect_response['data']['id'] ) ? intval( $connect_response['data']['id'] ) : '';
 			$connect_uuid = isset( $connect_response['data']['uuid'] ) ? $connect_response['data']['uuid'] : '';
