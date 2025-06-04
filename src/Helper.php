@@ -106,7 +106,7 @@ class Helper {
 
 			return true;
 		} catch (\Throwable $th) {
-			error_log( 'generate_api_key error, response from connects api: ' . wp_json_encode( array(
+			error_log( 'generate_api_key error, exception: ' . wp_json_encode( array(
 				'message' => $th->getMessage(),
                 'line' => $th->getLine(),
                 'file' => $th->getFile(),
