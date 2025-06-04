@@ -113,16 +113,12 @@ class Helper {
 
 			return true;
 		} catch ( \Throwable $th ) {
-			error_log(
-				'generate_api_key error exception: ' . wp_json_encode(
-					array(
-						'message' => $th->getMessage(),
-						'line'    => $th->getLine(),
-						'file'    => $th->getFile(),
-						'params'  => isset( $config ) ? $config : null,
-					)
-				)
-			);
+			error_log( 'generate_api_key error exception: ' . wp_json_encode( array(
+				'message' => $th->getMessage(),
+				'line'    => $th->getLine(),
+				'file'    => $th->getFile(),
+				'params'  => isset( $config ) ? $config : null,
+			) ) );
 
 			return false;
 		}
