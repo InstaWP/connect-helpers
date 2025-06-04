@@ -4,85 +4,128 @@ namespace InstaWP\Connect\Helpers;
 
 class Helper {
 
-	public static function instawp_generate_api_key( $api_key, $jwt = '', $config = [] ) {
+	public static function instawp_generate_api_key( $api_key, $jwt = '', $config = array() ) {
 		return self::generate_api_key( $api_key, $jwt, $config );
 	}
 
-	public static function generate_api_key( $api_key, $jwt = '', $config = [] ) {
-		if ( empty( $api_key ) ) {
-			error_log( 'instawp_generate_api_key empty api_key parameter' );
+	public static function generate_api_key( $api_key, $jwt = '', $config = array() ) {
+		try {
 
-			return false;
-		}
-
-		$api_response = Curl::do_curl( 'check-key?jwt=' . $jwt, array(), array(), 'GET', 'v1', $api_key );
-
-		if ( ! empty( $api_response['data']['status'] ) ) {
-			$api_options = self::get_options();
-
-			if ( is_array( $api_options ) && is_array( $api_response['data'] ) ) {
-				self::set_settings( array_merge( $api_options, array(
-					'api_key'  => $api_key,
-					'jwt'      => $jwt,
-					'origin'   => md5( self::wp_site_url( '', true ) ),
-					'response' => $api_response['data'],
-				) ) );
-			}
-		} else {
-			error_log( 'instawp_generate_api_key error, response from check-key api: ' . wp_json_encode( $api_response ) );
-
-			return false;
-		}
-
-		$connect_body     = array(
-			'url'            => self::wp_site_url(),
-			'wp_version'     => get_bloginfo( 'version' ),
-			'php_version'    => phpversion(),
-			'title'          => get_bloginfo( 'name' ),
-			'icon'           => get_site_icon_url(),
-			'username'       => base64_encode( self::get_admin_username() ),
-			'managed'        => is_bool( $config ) ? $config : true,
-		);
-
-		if ( defined( 'INSTAWP_PLUGIN_VERSION' ) ) {
-			$connect_body['plugin_version'] = INSTAWP_PLUGIN_VERSION;
-		}
-
-		if ( is_array( $config ) ) {
-			$connect_body = array_merge( $connect_body, $config );
-		}
-
-		$connect_response = Curl::do_curl( 'connects', $connect_body, array(), 'POST', 'v1' );
-
-		if ( ! empty( $connect_response['data']['status'] ) ) {
-			$connect_id   = ! empty( $connect_response['data']['id'] ) ? intval( $connect_response['data']['id'] ) : '';
-			$connect_uuid = isset( $connect_response['data']['uuid'] ) ? $connect_response['data']['uuid'] : '';
-
-			if ( $connect_id && $connect_uuid ) {
-				self::set_connect_id( $connect_id );
-				self::set_connect_uuid( $connect_uuid );
-
-				if ( empty( $jwt ) ) {
-					self::generate_jwt( $connect_id );
-				}
-
-				if ( ! empty( $plan_id ) ) {
-					self::set_connect_plan_id( $plan_id );
-				}
-
-				do_action( 'instawp_connect_connected', $connect_id );
-			} else {
-				error_log( 'instawp_generate_api_key connect id not found in response.' );
+			if ( empty( $api_key ) ) {
+				error_log( 'instawp_generate_api_key empty api_key parameter' );
 
 				return false;
 			}
-		} else {
-			error_log( 'generate_api_key error, response from connects api: ' . wp_json_encode( $connect_response ) );
+
+			$api_response = Curl::do_curl( 'check-key?jwt=' . $jwt, array(), array(), 'GET', 'v1', $api_key );
+
+			if ( ! empty( $api_response['data']['status'] ) ) {
+				$api_options = self::get_options();
+
+				if ( is_array( $api_options ) && is_array( $api_response['data'] ) ) {
+					self::set_settings(
+						array_merge(
+							$api_options,
+							array(
+								'api_key'  => $api_key,
+								'jwt'      => $jwt,
+								'origin'   => md5( self::wp_site_url( '', true ) ),
+								'response' => $api_response['data'],
+							)
+						)
+					);
+				}
+			} else {
+				error_log( 'instawp_generate_api_key error, response from check-key api: ' . wp_json_encode( $api_response ) );
+
+				return false;
+			}
+
+			$connect_body = array(
+				'url'         => self::wp_site_url(),
+				'wp_version'  => get_bloginfo( 'version' ),
+				'php_version' => phpversion(),
+				'title'       => get_bloginfo( 'name' ),
+				'icon'        => get_site_icon_url(),
+				'username'    => base64_encode( self::get_admin_username() ),
+				'managed'     => is_bool( $config ) ? $config : true,
+			);
+
+			if ( defined( 'INSTAWP_PLUGIN_VERSION' ) ) {
+				$connect_body['plugin_version'] = INSTAWP_PLUGIN_VERSION;
+			}
+
+			if ( is_array( $config ) ) {
+				$connect_body = array_merge( $connect_body, $config );
+
+				if ( ! empty( $config['e2e_mig_wo_connects'] ) && ! empty( $config['group_uuid'] ) ) {
+					self::set_mig_gid( $config['group_uuid'] );
+					return $connect_body;
+				}
+
+				/**
+				 * Migrate White Label
+				 *
+				 * @param bool e2e_mig_push_request is the end to end migration push request
+				 * @param string wlm_slug is the white label migration slug of the migration
+				 */
+				if ( ! empty( $config['e2e_mig_push_request'] ) || ! empty( $config['wlm_slug'] ) ) {
+					$mig_request = Curl::do_curl( 'migrates-v3/' . $config['wlm_slug'] . '/e2e-push-request', $connect_body, array(), 'POST', 'v2' );
+
+					if ( ! empty( $mig_request['success'] ) && ! empty( $mig_request['data']['group_uuid'] ) ) {
+						self::set_mig_gid( $mig_request['data']['group_uuid'] );
+						return true;
+					}
+
+					return false;
+				}
+			}
+
+			$connect_response = Curl::do_curl( 'connects', $connect_body, array(), 'POST', 'v1' );
+
+			if ( ! empty( $connect_response['data']['status'] ) ) {
+				$connect_id   = ! empty( $connect_response['data']['id'] ) ? intval( $connect_response['data']['id'] ) : '';
+				$connect_uuid = isset( $connect_response['data']['uuid'] ) ? $connect_response['data']['uuid'] : '';
+
+				if ( $connect_id && $connect_uuid ) {
+					self::set_connect_id( $connect_id );
+					self::set_connect_uuid( $connect_uuid );
+
+					if ( empty( $jwt ) ) {
+						self::generate_jwt( $connect_id );
+					}
+
+					if ( ! empty( $plan_id ) ) {
+						self::set_connect_plan_id( $plan_id );
+					}
+
+					do_action( 'instawp_connect_connected', $connect_id );
+				} else {
+					error_log( 'instawp_generate_api_key connect id not found in response.' );
+
+					return false;
+				}
+			} else {
+				error_log( 'generate_api_key error, response from connects api: ' . wp_json_encode( $connect_response ) );
+
+				return false;
+			}
+
+			return true;
+		} catch ( \Throwable $th ) {
+			error_log(
+				'generate_api_key error exception: ' . wp_json_encode(
+					array(
+						'message' => $th->getMessage(),
+						'line'    => $th->getLine(),
+						'file'    => $th->getFile(),
+						'params'  => isset( $config ) ? $config : null,
+					)
+				)
+			);
 
 			return false;
 		}
-
-		return true;
 	}
 
 	public static function generate_jwt( $connect_id = '' ) {
@@ -109,7 +152,7 @@ class Helper {
 
 	public static function get_random_string( $length = 6 ) {
 		try {
-			$length        = ( int ) round( ceil( absint( $length ) / 2 ) );
+			$length        = (int) round( ceil( absint( $length ) / 2 ) );
 			$bytes         = function_exists( 'random_bytes' ) ? random_bytes( $length ) : openssl_random_pseudo_bytes( $length );
 			$random_string = bin2hex( $bytes );
 		} catch ( \Exception $e ) {
@@ -119,8 +162,8 @@ class Helper {
 		return $random_string;
 	}
 
-	public static function get_args_option( $key = '', $args = [], $default = '' ) {
-		$default = is_array( $default ) && empty( $default ) ? [] : $default;
+	public static function get_args_option( $key = '', $args = array(), $default = '' ) {
+		$default = is_array( $default ) && empty( $default ) ? array() : $default;
 		$value   = ! is_array( $default ) && ! is_bool( $default ) && empty( $default ) ? '' : $default;
 		$key     = empty( $key ) ? '' : $key;
 
@@ -145,7 +188,7 @@ class Helper {
 				foreach ( new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $path, \FilesystemIterator::SKIP_DOTS ) ) as $object ) {
 					try {
 						$bytes_total += $object->getSize();
-						++ $files_total;
+						++$files_total;
 					} catch ( \Exception $e ) {
 						continue;
 					}
@@ -154,20 +197,25 @@ class Helper {
 		} catch ( \Exception $e ) {
 		}
 
-		return [
+		return array(
 			'size'  => $bytes_total,
-			'count' => $files_total
-		];
+			'count' => $files_total,
+		);
 	}
 
 	public static function is_on_wordpress_org( $slug, $type ) {
 		$api_url  = 'https://api.wordpress.org/' . ( $type === 'plugin' ? 'plugins' : 'themes' ) . '/info/1.2/';
-		$response = wp_remote_get( add_query_arg( [
-			'action'  => $type . '_information',
-			'request' => [
-				'slug' => $slug
-			],
-		], $api_url ) );
+		$response = wp_remote_get(
+			add_query_arg(
+				array(
+					'action'  => $type . '_information',
+					'request' => array(
+						'slug' => $slug,
+					),
+				),
+				$api_url
+			)
+		);
 
 		if ( is_wp_error( $response ) ) {
 			return false;
@@ -186,7 +234,7 @@ class Helper {
 		if ( file_exists( $directory ) && is_dir( $directory ) ) {
 			if ( $handle = opendir( $directory ) ) {
 				while ( false !== ( $file = readdir( $handle ) ) ) {
-					if ( $file != "." && $file != ".." && strpos( $file, 'instawp' ) !== false ) {
+					if ( $file != '.' && $file != '..' && strpos( $file, 'instawp' ) !== false ) {
 						unlink( $directory . $file );
 					}
 				}
@@ -207,10 +255,12 @@ class Helper {
 		$username = '';
 
 		foreach (
-			get_users( array(
-				'role__in' => array( 'administrator' ),
-				'fields'   => array( 'user_login' ),
-			) ) as $admin
+			get_users(
+				array(
+					'role__in' => array( 'administrator' ),
+					'fields'   => array( 'user_login' ),
+				)
+			) as $admin
 		) {
 			if ( empty( $username ) && isset( $admin->user_login ) ) {
 				$username = $admin->user_login;
@@ -221,7 +271,7 @@ class Helper {
 		return $username;
 	}
 
-	public static function get_options( $default = [] ) {
+	public static function get_options( $default = array() ) {
 		return Option::get_option( 'instawp_api_options', $default );
 	}
 
@@ -237,7 +287,7 @@ class Helper {
 			$exploded             = explode( '|', $api_key );
 			$current_api_key_hash = hash( 'sha256', $exploded[1] );
 		} else {
-			$current_api_key_hash = ! empty( $api_key ) ? hash( 'sha256', $api_key ) : "";
+			$current_api_key_hash = ! empty( $api_key ) ? hash( 'sha256', $api_key ) : '';
 		}
 
 		return $current_api_key_hash;
@@ -270,7 +320,7 @@ class Helper {
 	public static function get_response() {
 		$api_options = self::get_options();
 
-		return self::get_args_option( 'response', $api_options, [] );
+		return self::get_args_option( 'response', $api_options, array() );
 	}
 
 	public static function get_api_domain( $default_domain = '' ) {
@@ -318,6 +368,37 @@ class Helper {
 		return self::set_settings( $api_options );
 	}
 
+	/**
+	 * Set migration group id
+	 */
+	public static function set_mig_gid( $group_uuid ) {
+		$api_options               = self::get_options();
+		$api_options['group_uuid'] = $group_uuid;
+
+		return self::set_settings( $api_options );
+	}
+
+	/**
+	 * Get migration group id
+	 */
+	public static function get_mig_gid() {
+		$api_options = self::get_options();
+
+		return self::get_args_option( 'group_uuid', $api_options );
+	}
+
+	/**
+	 * Has migration group id
+	 *
+	 * @param string $group_uuid migration group id
+	 */
+	public static function has_mig_gid( $group_uuid ) {
+		if ( empty( $group_uuid ) ) {
+			return false;
+		}
+		return $group_uuid === self::get_mig_gid();
+	}
+
 	public static function set_connect_uuid( $connect_uuid ) {
 		$api_options                 = self::get_options();
 		$api_options['connect_uuid'] = $connect_uuid;
@@ -355,13 +436,13 @@ class Helper {
 		$plan_id     = self::get_args_option( 'plan_id', $api_options );
 
 		if ( empty( $plan_id ) ) {
-			return [];
+			return array();
 		}
 
-		return [
+		return array(
 			'plan_id'        => $plan_id,
 			'plan_timestamp' => self::get_args_option( "plan_{$plan_id}_timestamp", $api_options ),
-		];
+		);
 	}
 
 	public static function get_connect_plan_id() {
@@ -377,7 +458,7 @@ class Helper {
 			$key = "plan_{$plan_id}_timestamp";
 
 			if ( ! isset( $api_options[ $key ] ) ) {
-				$api_options[ $key ] = current_time('mysql' );
+				$api_options[ $key ] = current_time( 'mysql' );
 			}
 
 			$api_options['plan_id'] = $plan_id;
@@ -397,7 +478,7 @@ class Helper {
 		}
 
 		unset( $api_options['plan_id'] );
-		unset( $api_options["plan_{$plan_id}_timestamp"] );
+		unset( $api_options[ "plan_{$plan_id}_timestamp" ] );
 
 		return self::set_settings( $api_options );
 	}
