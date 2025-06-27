@@ -332,15 +332,13 @@ class Cache {
 				try {
 					$config = $container->getCdnConfig();
 
-					if ( $config->isEnabled() && ! $config->isAgencyMode() ) {
+					if ( ( $config->isEnabled() || $config->isAccelerated() ) && ! $config->isAgencyMode() ) {
 						$pullzoneId = $config->getPullzoneId();
 						if ( $pullzoneId !== null ) {
 							$container->getApiClient()->purgePullzoneCache( $pullzoneId );
 						} else {
 							$message = 'Pullzone ID not found.';
 						}
-					} else {
-						$message = 'CDN is disabled or agency mode active.';
 					}
 				} catch ( \Exception $e ) {
 					$message = 'Purge failed: ' . esc_html( $e->getMessage() );
