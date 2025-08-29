@@ -100,16 +100,17 @@ class Helper {
 			$api_response = Curl::do_curl( 'check-key?jwt=' . $jwt, array(), array(), 'GET', 'v1', $api_key );
 
 			if ( ! empty( $api_response['data']['status'] ) ) {
-				self::set_settings(
-					array_merge(
-						$api_options,
-						array(
-							'api_key'  => $api_key,
-							'jwt'      => $jwt,
-							'origin'   => md5( self::wp_site_url( '', true ) ),
-							'response' => $api_response['data'],
-						)
+				$api_options = array_merge(
+					$api_options,
+					array(
+						'api_key'  => $api_key,
+						'jwt'      => $jwt,
+						'origin'   => md5( self::wp_site_url( '', true ) ),
+						'response' => $api_response['data'],
 					)
+				);
+				self::set_settings(
+					$api_options
 				);
 			} else {
 				self::add_error_log(
