@@ -82,9 +82,19 @@ class Curl {
 
 		$response = wp_remote_request( $api_url, $args );
 
+		if ( defined( 'INSTAWP_DEBUG_LOG' ) && INSTAWP_DEBUG_LOG ) {
+			error_log( 'API URL - ' . $api_url );
+			error_log( 'API ARGS - ' . is_array( $body ) ? wp_json_encode( $body ) : $body );
+			error_log( 'API HEADERS - ' . wp_json_encode( $headers ) );
+			error_log( 'API Response - ' . wp_json_encode( $response ) );
+		}
+
 		if ( is_wp_error( $response ) ) {
 			$error_message = $response->get_error_message();
 
+			if ( defined( 'INSTAWP_DEBUG_LOG' ) && INSTAWP_DEBUG_LOG ) {
+				error_log( 'Error - ' . $error_message );
+			}
 			Helper::add_error_log(
 				array(
 					'message' => $error_message,
