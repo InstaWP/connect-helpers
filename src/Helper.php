@@ -183,7 +183,7 @@ class Helper {
 						self::generate_jwt( $connect_id );
 					}
 
-					if ( ! empty( $connect_response['data']['is_staging_site'] ) ) {
+					if ( ! empty( $connect_response['data']['is_staging_site'] ) && true == $connect_response['data']['is_staging_site'] ) {
 						self::set_settings( true, 'instawp_is_staging' );
 					}
 
