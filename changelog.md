@@ -1,4 +1,4 @@
-v1.0.7 Beta
+v1.0.7
 ======
 - Added: User agent helper function
 
