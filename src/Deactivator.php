@@ -33,6 +33,7 @@ class Deactivator {
 				$results[] = [
 					'success' => false,
 					'message' => esc_html__( 'Required parameters are missing!', 'connect-helpers' ),
+					'item' 	  => $item,
 				];
 				continue;
 			}
@@ -42,11 +43,13 @@ class Deactivator {
 				$results[] = [
 					'success' => true,
 					'message' => esc_html__( 'Success!', 'connect-helpers' ),
+					'item' 	  => $item,
 				];
 			} else {
 				$results[] = [
 					'success' => false,
 					'message' => esc_html__( 'Only plugins can be deactivated!', 'connect-helpers' ),
+					'item' 	  => $item,
 				];
 			}
 		}
