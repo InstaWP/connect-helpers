@@ -14,7 +14,7 @@ class Deactivator {
 		if ( count( $this->args ) < 1 ) {
 			return [
 				'success' => false,
-				'message' => esc_html( 'Minimum 1 item is required!' ),
+				'message' => esc_html__( 'Minimum 1 item is required!', 'connect-helpers' ),
 			];
 		}
 
@@ -26,11 +26,31 @@ class Deactivator {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
 
-		deactivate_plugins( $this->args );
+		$results = [];
 
-		return [
-			'success' => true,
-			'message' => esc_html( 'Success!' )
-		];
+		foreach ( $this->args as $item ) {
+			if ( ! isset( $item['type'], $item['asset'] ) ) {
+				$results[] = [
+					'success' => false,
+					'message' => esc_html__( 'Required parameters are missing!', 'connect-helpers' ),
+				];
+				continue;
+			}
+
+			if ( 'plugin' === $item['type'] ) {
+				deactivate_plugins( $item['asset'] );
+				$results[] = [
+					'success' => true,
+					'message' => esc_html__( 'Success!', 'connect-helpers' ),
+				];
+			} else {
+				$results[] = [
+					'success' => false,
+					'message' => esc_html__( 'Only plugins can be deactivated!', 'connect-helpers' ),
+				];
+			}
+		}
+
+		return $results;
 	}
 }
