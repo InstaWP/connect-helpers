@@ -1,3 +1,7 @@
+v1.1.0
+======
+- Fixed: Improve response details
+
 v1.0.9
 ======
 - Fixed: Deactivator parses structured input matching Activator pattern
