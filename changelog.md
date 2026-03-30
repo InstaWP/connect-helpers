@@ -1,6 +1,7 @@
 v1.1.0
 ======
-- Fixed: Improve response details
+- Fixed: Improved response details
+- Optimized: Plugin and theme updates
 
 v1.0.9
 ======
