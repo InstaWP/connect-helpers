@@ -15,15 +15,21 @@ class Helper {
 	 * ('v3' | 'v4') so callers branch their flow before deciding which migration API to hit.
 	 *
 	 * @param string $api_key api key
+	 * @param string $migration_mode optional flow the engine is being resolved for (e.g. 'e2e' | 'push')
 	 *
 	 * @return array
 	 */
-	public static function getMigrationEngine( $api_key ) {
+	public static function getMigrationEngine( $api_key, $migration_mode = '' ) {
 		if ( empty( $api_key ) ) {
 			return self::sendResponse( false, 'API key is required.' );
 		}
 
-		$response = Curl::do_curl( 'migrate-v4/engine', array(), array(), 'GET', 'v2', $api_key );
+		// Forward the flow as a query param so client-app knows which flow asked (logged there).
+		$endpoint = ! empty( $migration_mode )
+			? add_query_arg( 'migration_mode', $migration_mode, 'migrate-v4/engine' )
+			: 'migrate-v4/engine';
+
+		$response = Curl::do_curl( $endpoint, array(), array(), 'GET', 'v2', $api_key );
 
 		if ( empty( $response['success'] ) || empty( $response['data']['engine'] ) ) {
 			return self::sendResponse( false, empty( $response['message'] ) ? 'Something went wrong.' : esc_html( $response['message'] ) );
@@ -65,7 +71,8 @@ class Helper {
 
 		$wlm_slug = sanitize_key( $wlm_slug );
 
-		$engine = self::getMigrationEngine( $api_key );
+		// e2e flow — tell client-app which flow is resolving the engine.
+		$engine = self::getMigrationEngine( $api_key, 'e2e' );
 
 		if ( ! $engine['success'] ) {
 			return $engine;
