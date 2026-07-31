@@ -26,6 +26,20 @@ class WPConfig extends \WPConfigTransformer {
         'WP_CACHE_KEY_SALT',
         'COOKIE_DOMAIN',
         'DOMAIN_CURRENT_SITE',
+        // InstaCache (Valkey/Redis) object-cache config is platform-managed. WP_REDIS_PASSWORD is
+        // an array ([acl_user, acl_pass]) on ACL setups; round-tripping it through the Config
+        // Manager collapses it to a string, breaking object-cache auth. Never read/write these.
+        'WP_REDIS_PASSWORD',
+        'WP_REDIS_HOST',
+        'WP_REDIS_PORT',
+        'WP_REDIS_SCHEME',
+        'WP_REDIS_PATH',
+        'WP_REDIS_DATABASE',
+        'WP_REDIS_PREFIX',
+        'WP_REDIS_TIMEOUT',
+        'WP_REDIS_READ_TIMEOUT',
+        'WP_REDIS_GRACEFUL',
+        'WP_REDIS_DISABLED',
     ];
 
     public function __construct( array $constants = [], $is_cli = false, $read_only = false ) {
