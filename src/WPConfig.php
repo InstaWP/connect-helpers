@@ -152,6 +152,17 @@ class WPConfig extends \WPConfigTransformer {
                     continue;
                 }
 
+                /* A close tag ends the statement exactly like a semicolon, so a brace-less
+                   body such as `if ( $a ) define( 'X', 1 ) ?>` must not leave the header
+                   open over the constants that follow it. */
+                if ( T_CLOSE_TAG === $id ) {
+                    $header  = null;
+                    $keyword = null;
+                    $expects_colon    = false;
+                    $condition_closed = false;
+                    continue;
+                }
+
                 if ( in_array( $id, $end_keywords, true ) ) {
                     array_pop( $stack );
                     $expects_colon = false;
@@ -373,7 +384,7 @@ class WPConfig extends \WPConfigTransformer {
      * @return bool
      */
     protected function is_define_call( $tokens, $index ) {
-        $rejected = [ T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION ];
+        $rejected = [ T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION, T_NS_SEPARATOR ];
 
         if ( defined( 'T_NULLSAFE_OBJECT_OPERATOR' ) ) {
             $rejected[] = constant( 'T_NULLSAFE_OBJECT_OPERATOR' );
@@ -429,7 +440,9 @@ class WPConfig extends \WPConfigTransformer {
      *
      * The test is deliberately narrow: merely mentioning the name is not enough, or
      * `if ( getenv( 'WP_DEBUG' ) === 'yes' ) { define( 'WP_DEBUG', true ); }` — a genuinely
-     * conditional define — would be waved through as global config.
+     * conditional define — would be waved through as global config. It is not exhaustive
+     * either: a self-guard ANDed with another test (`if ( ! defined( 'FS_METHOD' ) && ! WP_CLI )`)
+     * still counts as a guard, which under-detects in the same direction as before this change.
      *
      * @param array  $headers
      * @param string $name
