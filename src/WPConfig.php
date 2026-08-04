@@ -119,11 +119,15 @@ class WPConfig extends \WPConfigTransformer {
         $alt_keywords   = $this->alternative_syntax_keywords();
         $end_keywords   = [ T_ENDIF, T_ENDWHILE, T_ENDFOR, T_ENDFOREACH, T_ENDSWITCH ];
 
+        $trivia = [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ];
+
         $scoped  = [];
         $stack   = [];   // One entry per open block: the header text that introduced it.
         $header  = null; // Header text of the control structure currently being read.
         $keyword = null; // Which keyword started that header.
         $paren   = 0;    // Parenthesis depth, so a ternary ':' is not read as a block opener.
+        $expects_colon = false; // We are exactly at the ':' position of alternative syntax.
+        $condition_closed = false; // The current header's own condition has been closed.
         $total   = count( $tokens );
 
         for ( $index = 0; $index < $total; $index++ ) {
@@ -133,25 +137,37 @@ class WPConfig extends \WPConfigTransformer {
                 $id   = $token[0];
                 $text = $token[1];
 
+                if ( in_array( $id, $trivia, true ) ) {
+                    if ( null !== $header ) {
+                        $header .= $text;
+                    }
+                    continue;
+                }
+
                 if ( in_array( $id, $end_keywords, true ) ) {
                     array_pop( $stack );
+                    $expects_colon = false;
                     continue;
                 }
 
                 // A '{' that opens string interpolation ("{$a}", "${a}") is closed by a plain
                 // '}', so it has to be balanced here or every later define() looks nested.
                 if ( T_CURLY_OPEN === $id || T_DOLLAR_OPEN_CURLY_BRACES === $id ) {
-                    $stack[] = '';
+                    $stack[]       = '';
+                    $expects_colon = false;
                     continue;
                 }
 
                 if ( in_array( $id, $scope_keywords, true ) ) {
                     $header  = $text;
                     $keyword = $id;
+                    // `else` takes no condition, so its alternative-syntax ':' comes next.
+                    $expects_colon    = ( T_ELSE === $id );
+                    $condition_closed = ( T_ELSE === $id );
                     continue;
                 }
 
-                if ( T_STRING === $id && 0 === strcasecmp( $text, 'define' ) && $this->is_define_call( $tokens, $index ) ) {
+                if ( $this->is_define_token( $token ) && $this->is_define_call( $tokens, $index ) ) {
                     // Inside a block, or a brace-less body such as `if ( ... ) define( ... );`.
                     if ( ! empty( $stack ) || null !== $header ) {
                         $enclosing = $stack;
@@ -165,6 +181,7 @@ class WPConfig extends \WPConfigTransformer {
                             $scoped[ $name ] = true;
                         }
                     }
+                    $expects_colon = false;
                     continue;
                 }
 
@@ -172,31 +189,53 @@ class WPConfig extends \WPConfigTransformer {
                     $header .= $text;
                 }
 
+                $expects_colon = false;
                 continue;
             }
 
             if ( '(' === $token ) {
                 $paren++;
+                $expects_colon = false;
             } elseif ( ')' === $token ) {
                 $paren--;
+                // Only the ':' immediately after a control structure's OWN closing ')' opens an
+                // alternative-syntax block — hence $condition_closed, which stops a later call
+                // in a brace-less body from re-arming it. Without this, the ':' of a ternary
+                // (`if ( $a ) $b = $c ? d( $e ) : f();`) pushes a scope that nothing pops, and
+                // every constant below it in the file silently disappears.
+                if ( 0 === $paren && null !== $header && ! $condition_closed ) {
+                    $expects_colon    = true;
+                    $condition_closed = true;
+                }
             }
 
             if ( '{' === $token ) {
                 $stack[] = ( null === $header ) ? '' : $header;
                 $header  = null;
                 $keyword = null;
+                $expects_colon    = false;
+                $condition_closed = false;
                 continue;
             }
 
             if ( '}' === $token ) {
                 array_pop( $stack );
+                $expects_colon = false;
                 continue;
             }
 
-            if ( ':' === $token && null !== $header && 0 === $paren && in_array( $keyword, $alt_keywords, true ) ) {
+            if ( ':' === $token && $expects_colon && null !== $header && 0 === $paren && in_array( $keyword, $alt_keywords, true ) ) {
+                // `elseif:` / `else:` continue the same if-chain that a single `endif` closes,
+                // so they replace the open scope rather than nesting inside it.
+                if ( T_ELSEIF === $keyword || T_ELSE === $keyword ) {
+                    array_pop( $stack );
+                }
+
                 $stack[] = $header;
                 $header  = null;
                 $keyword = null;
+                $expects_colon    = false;
+                $condition_closed = false;
                 continue;
             }
 
@@ -204,15 +243,73 @@ class WPConfig extends \WPConfigTransformer {
                 // The statement ended without opening a block (a brace-less body, or `do ... while;`).
                 $header  = null;
                 $keyword = null;
+                $expects_colon    = false;
+                $condition_closed = false;
                 continue;
             }
 
             if ( null !== $header ) {
                 $header .= $token;
             }
+
+            if ( ')' !== $token ) {
+                $expects_colon = false;
+            }
         }
 
         return $scoped;
+    }
+
+    /**
+     * Whether a token names the `define` function, in either the plain (`define`) or
+     * fully qualified (`\define`) form. PHP 8 lexes the latter as a single token.
+     *
+     * @param array|string $token
+     *
+     * @return bool
+     */
+    protected function is_define_token( $token ) {
+        if ( ! is_array( $token ) ) {
+            return false;
+        }
+
+        $ids = [ T_STRING ];
+
+        if ( defined( 'T_NAME_FULLY_QUALIFIED' ) ) {
+            $ids[] = constant( 'T_NAME_FULLY_QUALIFIED' );
+        }
+
+        if ( ! in_array( $token[0], $ids, true ) ) {
+            return false;
+        }
+
+        return 0 === strcasecmp( ltrim( $token[1], '\\' ), 'define' );
+    }
+
+    /**
+     * Index of the next token after $index that is not whitespace or a comment.
+     *
+     * @param array $tokens
+     * @param int   $index
+     * @param int   $step   1 to scan forwards, -1 to scan backwards.
+     *
+     * @return int|null
+     */
+    protected function next_significant( $tokens, $index, $step = 1 ) {
+        $trivia = [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ];
+        $total  = count( $tokens );
+
+        for ( $cursor = $index + $step; $cursor >= 0 && $cursor < $total; $cursor += $step ) {
+            $token = $tokens[ $cursor ];
+
+            if ( is_array( $token ) && in_array( $token[0], $trivia, true ) ) {
+                continue;
+            }
+
+            return $cursor;
+        }
+
+        return null;
     }
 
     /**
@@ -225,31 +322,21 @@ class WPConfig extends \WPConfigTransformer {
      * @return bool
      */
     protected function is_define_call( $tokens, $index ) {
-        for ( $before = $index - 1; $before >= 0; $before-- ) {
-            $token = $tokens[ $before ];
+        $rejected = [ T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION ];
 
-            if ( is_array( $token ) && T_WHITESPACE === $token[0] ) {
-                continue;
-            }
-
-            if ( is_array( $token ) && in_array( $token[0], [ T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION ], true ) ) {
-                return false;
-            }
-
-            break;
+        if ( defined( 'T_NULLSAFE_OBJECT_OPERATOR' ) ) {
+            $rejected[] = constant( 'T_NULLSAFE_OBJECT_OPERATOR' );
         }
 
-        for ( $after = $index + 1; $after < count( $tokens ); $after++ ) {
-            $token = $tokens[ $after ];
+        $before = $this->next_significant( $tokens, $index, -1 );
 
-            if ( is_array( $token ) && T_WHITESPACE === $token[0] ) {
-                continue;
-            }
-
-            return '(' === $token;
+        if ( null !== $before && is_array( $tokens[ $before ] ) && in_array( $tokens[ $before ][0], $rejected, true ) ) {
+            return false;
         }
 
-        return false;
+        $after = $this->next_significant( $tokens, $index );
+
+        return null !== $after && '(' === $tokens[ $after ];
     }
 
     /**
@@ -261,27 +348,27 @@ class WPConfig extends \WPConfigTransformer {
      * @return string Empty when the name is not a plain string literal.
      */
     protected function define_name( $tokens, $index ) {
-        $total = count( $tokens );
+        $open = $this->next_significant( $tokens, $index );
 
-        for ( $next = $index + 1; $next < $total; $next++ ) {
-            $token = $tokens[ $next ];
-
-            if ( is_array( $token ) && T_WHITESPACE === $token[0] ) {
-                continue;
-            }
-
-            if ( '(' === $token ) {
-                continue;
-            }
-
-            if ( is_array( $token ) && T_CONSTANT_ENCAPSED_STRING === $token[0] ) {
-                return trim( $token[1], "'\"" );
-            }
-
+        if ( null === $open || '(' !== $tokens[ $open ] ) {
             return '';
         }
 
-        return '';
+        $literal = $this->next_significant( $tokens, $open );
+
+        if ( null === $literal || ! is_array( $tokens[ $literal ] ) || T_CONSTANT_ENCAPSED_STRING !== $tokens[ $literal ][0] ) {
+            return '';
+        }
+
+        // The literal must BE the whole first argument: `define( 'PRE' . $suffix, 1 )` would
+        // otherwise register 'PRE' and hide a genuinely top-level define( 'PRE', ... ).
+        $separator = $this->next_significant( $tokens, $literal );
+
+        if ( null === $separator || ',' !== $tokens[ $separator ] ) {
+            return '';
+        }
+
+        return trim( $tokens[ $literal ][1], "'\"" );
     }
 
     /**
@@ -381,7 +468,8 @@ class WPConfig extends \WPConfigTransformer {
             $args['placement'] = 'after';
         }
 
-        $scoped = $this->is_cli ? [] : $this->scoped_constants( $content );
+        $scoped  = $this->is_cli ? [] : $this->scoped_constants( $content );
+        $skipped = [];
 
         foreach ( $this->config_data as $key => $value ) {
             if ( empty( $key ) ) {
@@ -389,6 +477,9 @@ class WPConfig extends \WPConfigTransformer {
             }
 
             if ( ! $this->is_cli && ( preg_match( '/[a-z]/', $key ) || $this->is_blacklisted( $key ) || isset( $scoped[ $key ] ) ) ) {
+                // Report what was not written. The caller posts the whole constant map back,
+                // so without this a protected constant looks saved and silently reverts.
+                $skipped[] = $key;
                 continue;
             }
 
@@ -426,7 +517,13 @@ class WPConfig extends \WPConfigTransformer {
             }
         }
 
-        return [ 'success' => true ];
+        $response = [ 'success' => true ];
+
+        if ( ! empty( $skipped ) ) {
+            $response['skipped'] = $skipped;
+        }
+
+        return $response;
     }
 
     public function delete() {
@@ -443,11 +540,14 @@ class WPConfig extends \WPConfigTransformer {
             $scoped  = $this->scoped_constants( $content );
         }
 
+        $skipped = [];
+
         foreach ( $constants as $constant ) {
             // Same protection get()/set() apply: the Config Manager never removes a
             // blacklisted (platform-managed) constant, nor one that only exists inside a
             // conditional block it was never able to show the caller.
             if ( ! $this->is_cli && ( $this->is_blacklisted( $constant ) || isset( $scoped[ $constant ] ) ) ) {
+                $skipped[] = $constant;
                 continue;
             }
 
@@ -458,6 +558,12 @@ class WPConfig extends \WPConfigTransformer {
             }
         }
 
-        return [ 'success' => true ];
+        $response = [ 'success' => true ];
+
+        if ( ! empty( $skipped ) ) {
+            $response['skipped'] = $skipped;
+        }
+
+        return $response;
     }
 }
