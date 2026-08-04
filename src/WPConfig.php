@@ -49,6 +49,265 @@ class WPConfig extends \WPConfigTransformer {
         return false;
     }
 
+    /**
+     * Control structures whose body we treat as a conditional scope.
+     *
+     * @return array
+     */
+    protected function scope_keywords() {
+        $keywords = [ T_IF, T_ELSEIF, T_ELSE, T_WHILE, T_FOR, T_FOREACH, T_SWITCH, T_DO, T_TRY, T_CATCH, T_FUNCTION ];
+
+        foreach ( [ 'T_FINALLY', 'T_FN', 'T_MATCH' ] as $maybe ) {
+            if ( defined( $maybe ) ) {
+                $keywords[] = constant( $maybe );
+            }
+        }
+
+        return $keywords;
+    }
+
+    /**
+     * Control structures that support PHP's alternative (colon) syntax.
+     *
+     * Deliberately excludes T_FUNCTION so a return type (`function f(): void`) is not
+     * mistaken for the start of a block.
+     *
+     * @return array
+     */
+    protected function alternative_syntax_keywords() {
+        return [ T_IF, T_ELSEIF, T_ELSE, T_WHILE, T_FOR, T_FOREACH, T_SWITCH ];
+    }
+
+    /**
+     * Names of constants whose define() does NOT sit at the top level of wp-config.php.
+     *
+     * WPConfigTransformer parses wp-config.php with a flat regex that has no awareness of
+     * enclosing scope, so a define() nested in a block — for example the InstaCache
+     * drop-in's
+     *
+     *     if ( defined( 'WP_CLI' ) && WP_CLI ) {
+     *         define( 'WP_REDIS_DISABLED', true );
+     *     }
+     *
+     * — is reported exactly like a top-level one. Surfacing such a constant to the Config
+     * Manager is wrong twice over: it advertises a value that does not apply to ordinary
+     * requests, and saving it back rewrites code inside a branch the caller never saw.
+     *
+     * A define() whose every enclosing condition names the constant itself — the ordinary
+     * `if ( ! defined( 'FOO' ) ) { define( 'FOO', ... ); }` idempotency guard — is
+     * unconditional in effect, so it stays manageable.
+     *
+     * Known limitation: a nested define() is only detected where the tokenizer is
+     * available; without it nothing is filtered and behaviour is unchanged.
+     *
+     * @param string $src wp-config.php source.
+     *
+     * @return array Constant name => true.
+     */
+    protected function scoped_constants( $src ) {
+        if ( ! function_exists( 'token_get_all' ) ) {
+            return [];
+        }
+
+        $tokens = @token_get_all( $src );
+
+        if ( empty( $tokens ) ) {
+            return [];
+        }
+
+        $scope_keywords = $this->scope_keywords();
+        $alt_keywords   = $this->alternative_syntax_keywords();
+        $end_keywords   = [ T_ENDIF, T_ENDWHILE, T_ENDFOR, T_ENDFOREACH, T_ENDSWITCH ];
+
+        $scoped  = [];
+        $stack   = [];   // One entry per open block: the header text that introduced it.
+        $header  = null; // Header text of the control structure currently being read.
+        $keyword = null; // Which keyword started that header.
+        $paren   = 0;    // Parenthesis depth, so a ternary ':' is not read as a block opener.
+        $total   = count( $tokens );
+
+        for ( $index = 0; $index < $total; $index++ ) {
+            $token = $tokens[ $index ];
+
+            if ( is_array( $token ) ) {
+                $id   = $token[0];
+                $text = $token[1];
+
+                if ( in_array( $id, $end_keywords, true ) ) {
+                    array_pop( $stack );
+                    continue;
+                }
+
+                // A '{' that opens string interpolation ("{$a}", "${a}") is closed by a plain
+                // '}', so it has to be balanced here or every later define() looks nested.
+                if ( T_CURLY_OPEN === $id || T_DOLLAR_OPEN_CURLY_BRACES === $id ) {
+                    $stack[] = '';
+                    continue;
+                }
+
+                if ( in_array( $id, $scope_keywords, true ) ) {
+                    $header  = $text;
+                    $keyword = $id;
+                    continue;
+                }
+
+                if ( T_STRING === $id && 0 === strcasecmp( $text, 'define' ) && $this->is_define_call( $tokens, $index ) ) {
+                    // Inside a block, or a brace-less body such as `if ( ... ) define( ... );`.
+                    if ( ! empty( $stack ) || null !== $header ) {
+                        $enclosing = $stack;
+                        if ( null !== $header ) {
+                            $enclosing[] = $header;
+                        }
+
+                        $name = $this->define_name( $tokens, $index );
+
+                        if ( '' !== $name && ! $this->guards_itself( $enclosing, $name ) ) {
+                            $scoped[ $name ] = true;
+                        }
+                    }
+                    continue;
+                }
+
+                if ( null !== $header ) {
+                    $header .= $text;
+                }
+
+                continue;
+            }
+
+            if ( '(' === $token ) {
+                $paren++;
+            } elseif ( ')' === $token ) {
+                $paren--;
+            }
+
+            if ( '{' === $token ) {
+                $stack[] = ( null === $header ) ? '' : $header;
+                $header  = null;
+                $keyword = null;
+                continue;
+            }
+
+            if ( '}' === $token ) {
+                array_pop( $stack );
+                continue;
+            }
+
+            if ( ':' === $token && null !== $header && 0 === $paren && in_array( $keyword, $alt_keywords, true ) ) {
+                $stack[] = $header;
+                $header  = null;
+                $keyword = null;
+                continue;
+            }
+
+            if ( ';' === $token && 0 === $paren ) {
+                // The statement ended without opening a block (a brace-less body, or `do ... while;`).
+                $header  = null;
+                $keyword = null;
+                continue;
+            }
+
+            if ( null !== $header ) {
+                $header .= $token;
+            }
+        }
+
+        return $scoped;
+    }
+
+    /**
+     * Whether the `define` token at $index is a real function call and not a method
+     * name (`$obj->define(...)`, `Foo::define(...)`) or a declaration.
+     *
+     * @param array $tokens
+     * @param int   $index
+     *
+     * @return bool
+     */
+    protected function is_define_call( $tokens, $index ) {
+        for ( $before = $index - 1; $before >= 0; $before-- ) {
+            $token = $tokens[ $before ];
+
+            if ( is_array( $token ) && T_WHITESPACE === $token[0] ) {
+                continue;
+            }
+
+            if ( is_array( $token ) && in_array( $token[0], [ T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION ], true ) ) {
+                return false;
+            }
+
+            break;
+        }
+
+        for ( $after = $index + 1; $after < count( $tokens ); $after++ ) {
+            $token = $tokens[ $after ];
+
+            if ( is_array( $token ) && T_WHITESPACE === $token[0] ) {
+                continue;
+            }
+
+            return '(' === $token;
+        }
+
+        return false;
+    }
+
+    /**
+     * The constant name of the define() call whose `define` token sits at $index.
+     *
+     * @param array $tokens
+     * @param int   $index
+     *
+     * @return string Empty when the name is not a plain string literal.
+     */
+    protected function define_name( $tokens, $index ) {
+        $total = count( $tokens );
+
+        for ( $next = $index + 1; $next < $total; $next++ ) {
+            $token = $tokens[ $next ];
+
+            if ( is_array( $token ) && T_WHITESPACE === $token[0] ) {
+                continue;
+            }
+
+            if ( '(' === $token ) {
+                continue;
+            }
+
+            if ( is_array( $token ) && T_CONSTANT_ENCAPSED_STRING === $token[0] ) {
+                return trim( $token[1], "'\"" );
+            }
+
+            return '';
+        }
+
+        return '';
+    }
+
+    /**
+     * Whether every enclosing condition names the constant itself, i.e. the define() is
+     * only wrapped in its own `if ( ! defined( 'FOO' ) )` guard and therefore applies
+     * unconditionally.
+     *
+     * @param array  $headers
+     * @param string $name
+     *
+     * @return bool
+     */
+    protected function guards_itself( $headers, $name ) {
+        if ( empty( $headers ) ) {
+            return true;
+        }
+
+        foreach ( $headers as $header ) {
+            if ( ! preg_match( '/\b' . preg_quote( $name, '/' ) . '\b/', $header ) ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function __construct( array $constants = [], $is_cli = false, $read_only = false ) {
         $file = ABSPATH . 'wp-config.php';
         if ( ! file_exists( $file ) ) {
@@ -81,8 +340,10 @@ class WPConfig extends \WPConfigTransformer {
             'wp-config' => [],
         ];
 
+        $scoped = $this->is_cli ? [] : $this->scoped_constants( $this->wp_config_src );
+
         foreach ( $this->wp_configs['constant'] as $constant => $data ) {
-            if ( ! $this->is_cli && ( preg_match( '/[a-z]/', $constant ) || $this->is_blacklisted( $constant ) ) ) {
+            if ( ! $this->is_cli && ( preg_match( '/[a-z]/', $constant ) || $this->is_blacklisted( $constant ) || isset( $scoped[ $constant ] ) ) ) {
                 continue;
             }
 
@@ -120,12 +381,14 @@ class WPConfig extends \WPConfigTransformer {
             $args['placement'] = 'after';
         }
 
+        $scoped = $this->is_cli ? [] : $this->scoped_constants( $content );
+
         foreach ( $this->config_data as $key => $value ) {
             if ( empty( $key ) ) {
                 continue;
             }
 
-            if ( ! $this->is_cli && ( preg_match( '/[a-z]/', $key ) || $this->is_blacklisted( $key ) ) ) {
+            if ( ! $this->is_cli && ( preg_match( '/[a-z]/', $key ) || $this->is_blacklisted( $key ) || isset( $scoped[ $key ] ) ) ) {
                 continue;
             }
 
@@ -173,7 +436,21 @@ class WPConfig extends \WPConfigTransformer {
             throw new \Exception( 'No constants provided!' );
         }
 
+        $scoped = [];
+
+        if ( ! $this->is_cli ) {
+            $content = file_get_contents( $this->wp_config_path );
+            $scoped  = $this->scoped_constants( $content );
+        }
+
         foreach ( $constants as $constant ) {
+            // Same protection get()/set() apply: the Config Manager never removes a
+            // blacklisted (platform-managed) constant, nor one that only exists inside a
+            // conditional block it was never able to show the caller.
+            if ( ! $this->is_cli && ( $this->is_blacklisted( $constant ) || isset( $scoped[ $constant ] ) ) ) {
+                continue;
+            }
+
             try {
                 $this->remove( 'constant', $constant );
             } catch ( \Exception $e ) {
