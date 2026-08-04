@@ -97,8 +97,16 @@ class WPConfig extends \WPConfigTransformer {
      * `if ( ! defined( 'FOO' ) ) { define( 'FOO', ... ); }` idempotency guard — is
      * unconditional in effect, so it stays manageable.
      *
-     * Known limitation: a nested define() is only detected where the tokenizer is
-     * available; without it nothing is filtered and behaviour is unchanged.
+     * Deliberate limitations, all of which fail towards today's behaviour rather than
+     * towards hiding a constant that is genuinely global:
+     *  - Without the tokenizer extension nothing is filtered at all.
+     *  - The result is keyed by NAME, so a constant defined both at the top level and
+     *    inside a block is left alone entirely. That is intentional: the transformer
+     *    rewrites by matching source text and we cannot tell which occurrence it would
+     *    edit, so refusing is the only safe answer.
+     *  - A brace-less body that immediately opens another statement
+     *    (`if ( $a )` newline `if ( ! defined( 'FOO' ) ) { ... }`) is judged on the inner
+     *    condition only; tracking the outer one needs statement-level parsing.
      *
      * @param string $src wp-config.php source.
      *
@@ -158,7 +166,13 @@ class WPConfig extends \WPConfigTransformer {
                     continue;
                 }
 
-                if ( in_array( $id, $scope_keywords, true ) ) {
+                // A control keyword only opens a scope at the top of a statement. Inside
+                // parentheses it belongs to something else — a closure in a condition — and
+                // must not replace the header being read. PHP 7 also allows reserved words as
+                // member names, so `function for( $k ): string` still lexes T_FOR: taking that
+                // as a `for` header would read its return-type ':' as alternative syntax and
+                // push a scope nothing pops.
+                if ( in_array( $id, $scope_keywords, true ) && 0 === $paren && ! $this->is_member_name( $tokens, $index ) ) {
                     $header  = $text;
                     $keyword = $id;
                     // `else` takes no condition, so its alternative-syntax ':' comes next.
@@ -210,6 +224,17 @@ class WPConfig extends \WPConfigTransformer {
             }
 
             if ( '{' === $token ) {
+                // A '{' inside parentheses is a closure or match body sitting in the middle of
+                // a condition — `if ( array_filter( $a, function ( $v ) { … } ) ) :`. It opens a
+                // scope, but the header it interrupts is still being read, so keep it: nulling
+                // it would stop the following ':' from pushing and leave the matching `endif`
+                // to pop the enclosing block instead.
+                if ( $paren > 0 ) {
+                    $stack[] = '';
+                    $expects_colon = false;
+                    continue;
+                }
+
                 $stack[] = ( null === $header ) ? '' : $header;
                 $header  = null;
                 $keyword = null;
@@ -313,6 +338,32 @@ class WPConfig extends \WPConfigTransformer {
     }
 
     /**
+     * Whether the token at $index is being used as a member/function NAME rather than as
+     * the keyword it lexes to. PHP 7 allows reserved words after `function`, `->`, `?->`
+     * and `::`, so `function for( $k )` and `$obj->if()` both reach us as control keywords.
+     *
+     * @param array $tokens
+     * @param int   $index
+     *
+     * @return bool
+     */
+    protected function is_member_name( $tokens, $index ) {
+        $before = $this->next_significant( $tokens, $index, -1 );
+
+        if ( null === $before || ! is_array( $tokens[ $before ] ) ) {
+            return false;
+        }
+
+        $names_follow = [ T_FUNCTION, T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_CONST ];
+
+        if ( defined( 'T_NULLSAFE_OBJECT_OPERATOR' ) ) {
+            $names_follow[] = constant( 'T_NULLSAFE_OBJECT_OPERATOR' );
+        }
+
+        return in_array( $tokens[ $before ][0], $names_follow, true );
+    }
+
+    /**
      * Whether the `define` token at $index is a real function call and not a method
      * name (`$obj->define(...)`, `Foo::define(...)`) or a declaration.
      *
@@ -372,9 +423,13 @@ class WPConfig extends \WPConfigTransformer {
     }
 
     /**
-     * Whether every enclosing condition names the constant itself, i.e. the define() is
-     * only wrapped in its own `if ( ! defined( 'FOO' ) )` guard and therefore applies
-     * unconditionally.
+     * Whether every enclosing condition is a `defined( 'FOO' )` test on the constant
+     * itself, i.e. the define() is only wrapped in its own idempotency guard and therefore
+     * applies unconditionally.
+     *
+     * The test is deliberately narrow: merely mentioning the name is not enough, or
+     * `if ( getenv( 'WP_DEBUG' ) === 'yes' ) { define( 'WP_DEBUG', true ); }` — a genuinely
+     * conditional define — would be waved through as global config.
      *
      * @param array  $headers
      * @param string $name
@@ -386,8 +441,10 @@ class WPConfig extends \WPConfigTransformer {
             return true;
         }
 
+        $pattern = '/\bdefined\s*\(\s*[\'"]' . preg_quote( $name, '/' ) . '[\'"]\s*\)/';
+
         foreach ( $headers as $header ) {
-            if ( ! preg_match( '/\b' . preg_quote( $name, '/' ) . '\b/', $header ) ) {
+            if ( ! preg_match( $pattern, $header ) ) {
                 return false;
             }
         }
@@ -476,9 +533,14 @@ class WPConfig extends \WPConfigTransformer {
                 continue;
             }
 
-            if ( ! $this->is_cli && ( preg_match( '/[a-z]/', $key ) || $this->is_blacklisted( $key ) || isset( $scoped[ $key ] ) ) ) {
-                // Report what was not written. The caller posts the whole constant map back,
-                // so without this a protected constant looks saved and silently reverts.
+            if ( ! $this->is_cli && preg_match( '/[a-z]/', $key ) ) {
+                // Not a constant name we ever manage — a malformed key, not a protection.
+                continue;
+            }
+
+            if ( ! $this->is_cli && ( $this->is_blacklisted( $key ) || isset( $scoped[ $key ] ) ) ) {
+                // Report what was deliberately not written. The caller posts the whole constant
+                // map back, so without this a protected constant looks saved and silently reverts.
                 $skipped[] = $key;
                 continue;
             }
