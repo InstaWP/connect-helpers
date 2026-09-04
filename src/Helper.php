@@ -343,6 +343,93 @@ class Helper {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Field names whose VALUE must never be written to the error log.
+	 *
+	 * add_error_log() persists to an option that can subsequently be surfaced to a site
+	 * administrator, so it must be treated as readable rather than internal. Curl::do_curl() logs
+	 * the whole request body on any 4xx/5xx, and a 4xx is an ordinary outcome, so without this any
+	 * credential travelling in a request body is written there by default.
+	 *
+	 * Matched on a substring, so `plugin_api_key`, `insta_mig_key` and `wp_app_password` are covered
+	 * without maintaining an exact list. `salt` and `signature` matter more than they look:
+	 * migrate_settings.wp_config_constants carries EVERY define() from wp-config.php, which means
+	 * AUTH_SALT / SECURE_AUTH_SALT / LOGGED_IN_SALT / NONCE_SALT — and api_signature is sent on the
+	 * V3 serve endpoint.
+	 */
+	const REDACTED_LOG_KEYS = array(
+		'password',
+		'pwd',
+		'api_key',
+		'apikey',
+		'secret',
+		'token',
+		'jwt',
+		'_key',
+		'salt',
+		'signature',
+		'credential',
+	);
+
+	/**
+	 * Strip credential values immediately before they are written to the log.
+	 *
+	 * Deliberately NOT folded into sanitize_data(): that is a shared, general-purpose sanitiser used
+	 * by callers that intend to KEEP what it returns, and silently dropping fields there would
+	 * corrupt their data. Redaction belongs at the sink, not in the sanitiser.
+	 *
+	 * @param array $data payload about to be logged.
+	 *
+	 * @return array
+	 */
+	private static function redact_for_log( $data ) {
+		if ( ! is_array( $data ) ) {
+			return $data;
+		}
+
+		foreach ( $data as $key => $value ) {
+			if ( self::is_redacted_log_key( $key ) ) {
+				$data[ $key ] = '[redacted]';
+				continue;
+			}
+
+			if ( is_array( $value ) ) {
+				$data[ $key ] = self::redact_for_log( $value );
+			}
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Strip credential VALUES out of a free-text string.
+	 *
+	 * The key-based redactor cannot help here: this is for text that merely quotes a credential
+	 * (an exception message naming the URL that failed). Covers the two shapes that actually occur
+	 * on this sink — a query parameter and a bearer/authorization value.
+	 *
+	 * @param string $text text to scrub.
+	 *
+	 * @return string
+	 */
+	private static function scrub_credentials_in_text( $text ) {
+		if ( ! is_string( $text ) || '' === $text ) {
+			return $text;
+		}
+
+		// ?token=…&  /  &api_key=…  — keep the parameter name, drop the value.
+		$text = preg_replace(
+			'/([?&](?:[A-Za-z0-9_\-]*(?:token|api_?key|secret|password|signature|salt)[A-Za-z0-9_\-]*)=)[^&\s]+/i',
+			'$1[redacted]',
+			$text
+		);
+
+		// Authorization: Bearer <value>  /  Basic <value>
+		$text = preg_replace( '/\b(Bearer|Basic)\s+[A-Za-z0-9._~+\/=-]+/i', '$1 [redacted]', $text );
+
+		return $text;
+	}
+
 	public static function add_error_log( $payload, $th = null ) {
 		$log_name = 'iwp_connect_helper_error_log';
 		$log      = self::get_options( array(), $log_name );
@@ -354,7 +441,7 @@ class Helper {
 			$log = array_slice( $log, 50 );
 		}
 
-		$error         = is_array( $payload ) ? self::sanitize_data( $payload ) : array(
+		$error         = is_array( $payload ) ? self::redact_for_log( self::sanitize_data( $payload ) ) : array(
 			'message' => sanitize_text_field( $payload ),
 		);
 		$error['time'] = date( 'Y-m-d H:i:s' );
@@ -363,7 +450,11 @@ class Helper {
 			$error = array_merge(
 				$error,
 				array(
-					'error' => $th->getMessage(),
+					// Scrubbed by VALUE, not by key. redact_for_log() matches field NAMES, and this
+					// field is called 'error' — so passing it through the redactor would do nothing
+					// at all. An exception message routinely quotes the URL that threw, which on
+					// this sink can carry ?token=/?api_key= or an Authorization value.
+					'error' => self::scrub_credentials_in_text( $th->getMessage() ),
 					'line'  => $th->getLine(),
 					'file'  => $th->getFile(),
 				)
@@ -412,6 +503,29 @@ class Helper {
 			$data = '';
 		}
 		return $data;
+	}
+
+	/**
+	 * Does this array key name a credential that must not be logged?
+	 *
+	 * @param mixed $key Array key from the payload being logged.
+	 *
+	 * @return bool
+	 */
+	private static function is_redacted_log_key( $key ) {
+		if ( ! is_string( $key ) ) {
+			return false;
+		}
+
+		$key = strtolower( $key );
+
+		foreach ( self::REDACTED_LOG_KEYS as $needle ) {
+			if ( false !== strpos( $key, $needle ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public static function generate_api_key( $api_key, $jwt = '', $config = array() ) {
