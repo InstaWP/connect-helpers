@@ -775,7 +775,7 @@ class Helper {
 					foreach ( array( 'cdn_enabled', 'is_insta_site' ) as $cdn_key ) {
 						if ( isset( $connect_response['data'][ $cdn_key ] ) && is_bool( $connect_response['data'][ $cdn_key ] ) ) {
 							$api_options[ $cdn_key ] = $connect_response['data'][ $cdn_key ];
-						} else {
+						} elseif ( isset( $api_options[ $cdn_key ] ) ) {
 							unset( $api_options[ $cdn_key ] );
 						}
 					}
