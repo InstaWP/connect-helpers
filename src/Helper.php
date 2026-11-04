@@ -1112,7 +1112,11 @@ class Helper {
 
 		// The CDN flags belong to the previous connect; unknown until client-app says.
 		if ( intval( self::get_args_option( 'connect_id', $api_options ) ) !== intval( $connect_id ) ) {
-			unset( $api_options['cdn_enabled'], $api_options['is_insta_site'] );
+			foreach ( array( 'cdn_enabled', 'is_insta_site' ) as $cdn_key ) {
+				if ( isset( $api_options[ $cdn_key ] ) ) {
+					unset( $api_options[ $cdn_key ] );
+				}
+			}
 		}
 
 		$api_options['connect_id'] = intval( $connect_id );
