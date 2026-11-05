@@ -770,11 +770,13 @@ class Helper {
 					$api_options['connect_uuid'] = sanitize_text_field( $connect_uuid );
 
 					// Whether the site is hosted with InstaWP and has the CDN, for instawp-connect's
-					// CDN auto-purge. Taken only as explicit booleans; a response without them (older
-					// client-app) removes any value copied in with the options (staging, migration).
+					// CDN auto-purge. Sanitized like the plugin's v2/manage/cdn route does; a response
+					// without them (older client-app) removes any value copied in with the options
+					// (staging, migration).
 					foreach ( array( 'cdn_enabled', 'is_insta_site' ) as $cdn_key ) {
-						if ( isset( $connect_response['data'][ $cdn_key ] ) && is_bool( $connect_response['data'][ $cdn_key ] ) ) {
-							$api_options[ $cdn_key ] = $connect_response['data'][ $cdn_key ];
+						if ( isset( $connect_response['data'][ $cdn_key ] ) ) {
+							$cdn_value               = $connect_response['data'][ $cdn_key ];
+							$api_options[ $cdn_key ] = function_exists( 'rest_sanitize_boolean' ) ? rest_sanitize_boolean( $cdn_value ) : filter_var( $cdn_value, FILTER_VALIDATE_BOOLEAN );
 						} elseif ( isset( $api_options[ $cdn_key ] ) ) {
 							unset( $api_options[ $cdn_key ] );
 						}
