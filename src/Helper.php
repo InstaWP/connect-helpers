@@ -775,8 +775,7 @@ class Helper {
 					// (staging, migration).
 					foreach ( array( 'cdn_enabled', 'is_insta_site' ) as $cdn_key ) {
 						if ( isset( $connect_response['data'][ $cdn_key ] ) ) {
-							$cdn_value               = $connect_response['data'][ $cdn_key ];
-							$api_options[ $cdn_key ] = function_exists( 'rest_sanitize_boolean' ) ? rest_sanitize_boolean( $cdn_value ) : filter_var( $cdn_value, FILTER_VALIDATE_BOOLEAN );
+							$api_options[ $cdn_key ] = self::sanitize_boolean( $connect_response['data'][ $cdn_key ] );
 						} elseif ( isset( $api_options[ $cdn_key ] ) ) {
 							unset( $api_options[ $cdn_key ] );
 						}
@@ -908,6 +907,19 @@ class Helper {
 		}
 
 		return $random_string;
+	}
+
+	/**
+	 * A value as a boolean, the way WordPress's REST API sanitizes one: "false", "0" and ""
+	 * are false, anything else is cast. Falls back to FILTER_VALIDATE_BOOLEAN outside
+	 * WordPress. The one place instawp-connect and this package sanitize such a flag.
+	 *
+	 * @param mixed $value Value to sanitize.
+	 *
+	 * @return bool
+	 */
+	public static function sanitize_boolean( $value ) {
+		return function_exists( 'rest_sanitize_boolean' ) ? rest_sanitize_boolean( $value ) : filter_var( $value, FILTER_VALIDATE_BOOLEAN );
 	}
 
 	public static function get_args_option( $key = '', $args = array(), $default = '' ) {
