@@ -62,7 +62,7 @@ class DebugLog {
 				if ( 0 === fseek( $fh, -( self::MAX_READ_BYTES + 1 ), SEEK_END ) ) {
 					fgets( $fh );
 				} else {
-					// The file shrank below the window since it was measured: read it from the start.
+					// The file is smaller than the window (or shrank since it was measured): read it from the start.
 					rewind( $fh );
 					$cut = false;
 				}
