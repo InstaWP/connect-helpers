@@ -3,6 +3,13 @@ namespace InstaWP\Connect\Helpers;
 
 class DebugLog {
 
+	/**
+	 * Most bytes read from the end of the log. The whole file used to be parsed into memory, so a log of a
+	 * few hundred MB made the request run out of memory and the viewer showed nothing; the newest entries
+	 * are what the viewer is for.
+	 */
+	const MAX_READ_BYTES = 2097152;
+
     public function fetch() {
 		try {
 			$debug_enabled  = false;
@@ -39,6 +46,13 @@ class DebugLog {
 				];
 			}
 
+			$size = @filesize( $file );
+			if ( $size !== false && $size > self::MAX_READ_BYTES ) {
+				// Start in the last MAX_READ_BYTES and drop the partial line the cut landed in.
+				fseek( $fh, -self::MAX_READ_BYTES, SEEK_END );
+				fgets( $fh );
+			}
+
 			$logs  = [];
 			$store = false;
 			$index = 0;
@@ -57,7 +71,9 @@ class DebugLog {
 						'message'   => $info,
 					];
 					$index ++;
-				} else {
+				} elseif ( $index > 0 ) {
+					// A continuation line (e.g. a stack trace) belongs to the entry before it. One with no entry
+					// before it (the read started mid-entry) is skipped.
 					$last_index                     = $index - 1;
 					$logs[ $last_index ]['message'] .= trim( preg_replace( '/\s+/', ' ', $line ) );
 				}
